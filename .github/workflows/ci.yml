@@ -1,0 +1,200 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # bash on every OS for consistent shell semantics (Windows' default pwsh
+    # mangles `gotestsum -- -coverprofile=...` and the inline build script).
+    shell: bash
+
+# The oblikovati-mcp-bridge add-in (module oblikovati.org/mcp-bridge). The SHIPPED
+# c-shared library links only the Apache-2.0 contract (oblikovati.org/api); the GPL
+# application module (oblikovati.org) is pulled in solely by the bridge<->host
+# integration tests. Both are sibling repos resolved locally via go.work; CI injects
+# the equivalent `go mod edit -replace` (ADR-0018).
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati.API
+          ref: develop
+          path: _api
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati
+          ref: develop
+          path: _app
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      # Tests are linted (run.tests: true) and import the GPL app, so both replaces
+      # are needed even for lint to resolve the module graph.
+      - run: |
+          go mod edit -replace oblikovati.org/api="$GITHUB_WORKSPACE/_api"
+          go mod edit -replace oblikovati.org="$GITHUB_WORKSPACE/_app"
+      # The root package is cgo (export.go/hostcaller.go #include the C ABI header);
+      # golangci-lint compiles it, so vendor the header first (normally `make sync-header`).
+      - name: Vendor C ABI header
+        run: |
+          api_dir=$(go list -m -f '{{.Dir}}' oblikovati.org/api)
+          mkdir -p include
+          cp "$api_dir/include/oblikovati_addin.h" include/
+      - uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
+        with:
+          version: v2.1.0
+
+  # SPDX: every Go file in this GPL repo must carry GPL-2.0-only.
+  spdx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/add-spdx-headers.py --check
+
+  # Parity: the MCP tool surface is generated from the api/client mcp: annotations.
+  # Regenerate against the current API and fail if the committed tools_generated.go is
+  # stale or if any wire method lacks an annotation (mcpgen enforces full parity).
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati.API
+          ref: develop
+          path: _api
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati
+          ref: develop
+          path: _app
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: |
+          go mod edit -replace oblikovati.org/api="$GITHUB_WORKSPACE/_api"
+          go mod edit -replace oblikovati.org="$GITHUB_WORKSPACE/_app"
+      - run: go generate ./...
+      - name: tools_generated.go is up to date with the API
+        run: git diff --exit-code -- bridge/tools_generated.go
+
+  # Tier 1 — cgo-free unit + bridge<->host integration tests on every OS. The host's
+  # headless core is pure Go, so the integration tests (which drive the live
+  # router/model) run with CGO_ENABLED=0 on all three platforms.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati.API
+          ref: develop
+          path: _api
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati
+          ref: develop
+          path: _app
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: |
+          go mod edit -replace oblikovati.org/api="$GITHUB_WORKSPACE/_api"
+          go mod edit -replace oblikovati.org="$GITHUB_WORKSPACE/_app"
+      - run: go install gotest.tools/gotestsum@v1.12.0
+      - name: Test
+        run: gotestsum --junitfile test-results-${{ matrix.os }}.xml -- -coverprofile=coverage.out -covermode=count ./...
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test-results-${{ matrix.os }}.xml
+
+  # Race detector needs cgo; Linux only. Runs the bridge package (the root c-shared
+  # package has no tests).
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati.API
+          ref: develop
+          path: _api
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati
+          ref: develop
+          path: _app
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: |
+          go mod edit -replace oblikovati.org/api="$GITHUB_WORKSPACE/_api"
+          go mod edit -replace oblikovati.org="$GITHUB_WORKSPACE/_app"
+      - run: go test -race ./bridge/...
+
+  # Build the SHIPPED add-in: the cgo c-shared library (.so/.dll/.dylib) on every OS.
+  # Only the api sibling is linked, but the app must still be resolvable for the
+  # module graph (test-scope require), so both replaces are injected.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati.API
+          ref: develop
+          path: _api
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati
+          ref: develop
+          path: _app
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: |
+          go mod edit -replace oblikovati.org/api="$GITHUB_WORKSPACE/_api"
+          go mod edit -replace oblikovati.org="$GITHUB_WORKSPACE/_app"
+      - name: Build c-shared library
+        run: |
+          # Vendor the C ABI header from the (replaced) api module so cgo can -I it.
+          api_dir=$(go list -m -f '{{.Dir}}' oblikovati.org/api)
+          mkdir -p include build
+          cp "$api_dir/include/oblikovati_addin.h" include/
+          EXT=so
+          [ "$RUNNER_OS" = "Windows" ] && EXT=dll
+          [ "$RUNNER_OS" = "macOS" ] && EXT=dylib
+          echo "building oblikovati-mcp-bridge.$EXT"
+          go build -buildmode=c-shared -o "build/oblikovati-mcp-bridge.$EXT" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oblikovati-mcp-bridge-${{ matrix.os }}
+          path: build/oblikovati-mcp-bridge.*

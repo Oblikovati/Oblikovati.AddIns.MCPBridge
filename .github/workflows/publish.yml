@@ -1,0 +1,129 @@
+name: Publish
+
+# Hourly: if the API has advanced (a new nightly on develop, or a new release tag),
+# regenerate the MCP tool surface from it, build the c-shared add-in for every OS, and
+# publish a GitHub release. The release tag encodes the API commit, so the job is
+# idempotent — it only builds/publishes when the API actually changed since last time.
+on:
+  schedule:
+    - cron: "0 * * * *" # top of every hour
+  workflow_dispatch:
+    inputs:
+      api_ref:
+        description: "API ref to build against (branch, tag, or sha; default: latest develop)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write # create releases
+
+jobs:
+  # Resolve the API version to track and decide whether a build is needed (no existing
+  # release for this API commit). Outputs feed the build/publish jobs.
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+      api_sha: ${{ steps.decide.outputs.api_sha }}
+      channel: ${{ steps.decide.outputs.channel }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Prefer a new API release tag (stable) over the develop HEAD (nightly).
+          latest_release=$(gh release view -R Oblikovati/Oblikovati.API --json tagName -q .tagName 2>/dev/null || echo "")
+          override="${{ github.event.inputs.api_ref }}"
+          if [ -n "$override" ]; then
+            ref="$override"; channel="manual"
+          elif [ -n "$latest_release" ]; then
+            ref="$latest_release"; channel="release"
+          else
+            ref="develop"; channel="nightly"
+          fi
+          api_sha=$(gh api "repos/Oblikovati/Oblikovati.API/commits/$ref" --jq '.sha')
+          short=${api_sha:0:12}
+          tag="$channel-api-$short"
+          if gh release view "$tag" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "API unchanged ($tag already published) — nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "API advanced to $api_sha ($channel) — building $tag."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "api_sha=$api_sha" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  # Regenerate against the resolved API commit and build the c-shared add-in per OS.
+  build:
+    needs: check
+    if: needs.check.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati.API
+          ref: ${{ needs.check.outputs.api_sha }}
+          path: _api
+      - uses: actions/checkout@v4
+        with:
+          repository: Oblikovati/Oblikovati
+          ref: develop
+          path: _app
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: |
+          go mod edit -replace oblikovati.org/api="$GITHUB_WORKSPACE/_api"
+          go mod edit -replace oblikovati.org="$GITHUB_WORKSPACE/_app"
+      - name: Regenerate tool surface from the new API
+        run: go generate ./...
+      - name: Build c-shared library
+        run: |
+          api_dir=$(go list -m -f '{{.Dir}}' oblikovati.org/api)
+          mkdir -p include dist
+          cp "$api_dir/include/oblikovati_addin.h" include/
+          case "$RUNNER_OS" in
+            Windows) ext=dll; plat=windows-amd64 ;;
+            macOS)   ext=dylib; plat=darwin-$(uname -m) ;;
+            *)       ext=so; plat=linux-amd64 ;;
+          esac
+          go build -buildmode=c-shared -o "dist/oblikovati-mcp-bridge-$plat.$ext" .
+          cp manifest.json "dist/manifest.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bridge-${{ matrix.os }}
+          path: dist/*
+
+  # Collect the per-OS artifacts and cut a GitHub release for this API commit.
+  publish:
+    needs: [check, build]
+    if: needs.check.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ needs.check.outputs.tag }}" dist/* \
+            -R "$GITHUB_REPOSITORY" \
+            --title "MCP bridge (${{ needs.check.outputs.channel }}) — API ${{ needs.check.outputs.api_sha }}" \
+            --notes "Auto-built oblikovati-mcp-bridge against Oblikovati.API @ \`${{ needs.check.outputs.api_sha }}\` (${{ needs.check.outputs.channel }}). Tool surface generated from that API's mcp: annotations. Artifacts: c-shared library per OS + manifest.json." \
+            $([ "${{ needs.check.outputs.channel }}" = "nightly" ] && echo --prerelease)

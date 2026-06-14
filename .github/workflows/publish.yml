@@ -14,8 +14,9 @@ on:
         required: false
         default: ""
 
+# Least privilege at the workflow level; only the publish job is granted write (below).
 permissions:
-  contents: write # create releases
+  contents: read
 
 jobs:
   # Resolve the API version to track and decide whether a build is needed (no existing
@@ -113,6 +114,8 @@ jobs:
     needs: [check, build]
     if: needs.check.outputs.build == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub release
     steps:
       - uses: actions/download-artifact@v7
         with:

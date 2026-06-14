@@ -78,7 +78,7 @@ func addForward[In any](s *Server, name, desc, method string) {
 // host method, so every annotated method stays callable rather than crashing startup.
 func (s *Server) addToolSafe(name, desc, method string, build func()) {
 	defer func() {
-		if r := recover(); r != nil {
+		if recover() != nil {
 			mcp.AddTool(s.mcp, &mcp.Tool{Name: name, Description: desc + " (input: free-form JSON object)"},
 				func(_ context.Context, _ *mcp.CallToolRequest, in map[string]any) (*mcp.CallToolResult, any, error) {
 					return s.forward(method, in)

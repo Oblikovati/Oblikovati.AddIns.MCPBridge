@@ -115,4 +115,6 @@ func addr() string {
 // main is required for a Go program but never runs: this binary is built with
 // -buildmode=c-shared, so the host loads it as a library and calls the //export'd
 // ObkAddIn* entry points directly — there is no executable entry point.
-func main() {}
+func main() {
+	// Intentionally empty — see the doc comment above (c-shared has no entry point).
+}

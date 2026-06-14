@@ -43,6 +43,13 @@ jobs:
       - run: |
           go mod edit -replace oblikovati.org/api="$GITHUB_WORKSPACE/_api"
           go mod edit -replace oblikovati.org="$GITHUB_WORKSPACE/_app"
+      # The root package is cgo (export.go/hostcaller.go #include the C ABI header);
+      # golangci-lint compiles it, so vendor the header first (normally `make sync-header`).
+      - name: Vendor C ABI header
+        run: |
+          api_dir=$(go list -m -f '{{.Dir}}' oblikovati.org/api)
+          mkdir -p include
+          cp "$api_dir/include/oblikovati_addin.h" include/
       - uses: golangci/golangci-lint-action@9fae48acfc02a90574d7c304a1758ef9895495fa # v7
         with:
           version: v2.1.0

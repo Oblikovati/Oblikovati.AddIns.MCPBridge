@@ -34,7 +34,7 @@ def header(identifier: str) -> str:
 
 def is_constraint(line: str) -> bool:
     s = line.lstrip()
-    return s.startswith("//go:build") or s.startswith("// +build")
+    return s.startswith(("//go:build", "// +build"))
 
 
 def insert_index(lines: list[str]) -> int:

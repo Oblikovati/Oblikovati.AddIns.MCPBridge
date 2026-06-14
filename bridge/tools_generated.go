@@ -230,7 +230,7 @@ func (s *Server) registerGeneratedTools() {
 	addForward[noArgs](s, "list_sketches3d", "List the active part's 3D sketches (index, name, entity count, DOF).", wire.MethodSketch3DList)
 	addSummarized[wire.ListThemesResult](s, "list_themes", "List the available UI themes.", wire.MethodThemeList, summarizeThemes)
 	addForward[wire.ListViewsArgs](s, "list_views", "List a document's views (each with its camera), the active index, and the tiling layout; document 0 = active.", wire.MethodViewsList)
-	addForward[noArgs](s, "list_work_planes", "List the active part's work planes (origin + user). Each user plane reports its kind plus the inputs redefine_work_plane accepts: its scalars (offset/angle: index, label, unit, value) and its reference slots (index, label, kind: plane|axis|point|face).", wire.MethodWorkPlanesList)
+	addForward[noArgs](s, "list_work_planes", "List the work planes of the active part or assembly (origin + user). Each user plane reports its kind plus the inputs redefine_work_plane accepts: its scalars (offset/angle: index, label, unit, value) and its reference slots (index, label, kind: plane|axis|point|face).", wire.MethodWorkPlanesList)
 	addForward[wire.LoadEnvironmentImageArgs](s, "load_environment_image", "Load an HDR/EXR image as the lighting environment (image-based lighting) by reference.", wire.MethodEnvironmentLoadImage)
 	addForward[wire.RemoveManipulatorsArgs](s, "manipulators_remove", "Dismisses a gizmo's handles.", wire.MethodManipulatorsRemove)
 	addForward[wire.SetManipulatorsArgs](s, "manipulators_set", "Replaces one gizmo's handle set.", wire.MethodManipulatorsSet)

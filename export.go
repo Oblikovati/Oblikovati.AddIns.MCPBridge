@@ -22,6 +22,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"oblikovati.org/api"
 	"oblikovati.org/mcp-bridge/bridge"
 )
 
@@ -45,6 +46,16 @@ func ObkAddInId() *C.char { return idC }
 
 //export ObkAddInManifest
 func ObkAddInManifest() *C.char { return manC }
+
+// ObkAddInApiMajor/ObkAddInApiMinor report the oblikovati.org/api version this add-in
+// was compiled against, so the host's load-time gate can refuse an incompatible build
+// before activating it (see include/oblikovati_addin.h).
+//
+//export ObkAddInApiMajor
+func ObkAddInApiMajor() C.int { return C.int(api.Major()) }
+
+//export ObkAddInApiMinor
+func ObkAddInApiMinor() C.int { return C.int(api.Minor()) }
 
 //export ObkAddInActivate
 func ObkAddInActivate(call C.ObkHostCall, freeFn C.ObkHostFree) C.int {

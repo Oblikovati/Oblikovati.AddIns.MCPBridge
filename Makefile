@@ -18,8 +18,10 @@ endif
 LIB := oblikovati-mcp-bridge.$(EXT)
 OUT ?= build
 # Where the host looks for add-ins (the head in the sibling app repo; OBK_ADDINS_DIR
-# overrides at run).
-ADDINS_DIR ?= ../../Oblikovati/head/addins
+# overrides at run). The app is a SIBLING of this repo — one `..` — matching the
+# `replace oblikovati.org => ../Oblikovati` in go.work; two `..` escaped the workspace
+# and silently installed outside it.
+ADDINS_DIR ?= ../Oblikovati/head/addins
 
 # The C ABI header is owned by the public oblikovati.org/api module (its source of truth);
 # we vendor it into ./include (git-ignored) so cgo can -I it. Resolving the module dir

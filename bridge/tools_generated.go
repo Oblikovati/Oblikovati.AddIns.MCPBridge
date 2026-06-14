@@ -32,6 +32,7 @@ func (s *Server) registerGeneratedTools() {
 	addForward[wire.AddInRefArgs](s, "addins_get", "Returns one registry entry by add-in id.", wire.MethodAddInsGet)
 	addForward[noArgs](s, "addins_list", "Returns every registered add-in with its manifest identity and runtime state.", wire.MethodAddInsList)
 	addForward[wire.SetAddInLoadBehaviorArgs](s, "addins_set_load_behavior", "Persists when the host activates the add-in on future startups.", wire.MethodAddInsSetLoadBehavior)
+	addForward[noArgs](s, "application_api_version", "Returns the semantic version (version string + major) of the Oblikovati API contract the running host implements.", wire.MethodApplicationApiVersion)
 	addForward[wire.BOMExportArgs](s, "assembly_bom_export", "Exports the given view to CSV, adding a column for each named component property beyond the standard set, e.g.", wire.MethodAssemblyBOMExport)
 	addForward[wire.BOMViewArgs](s, "assembly_bom_view", "Reads the given view of the active assembly's BOM, e.g.", wire.MethodAssemblyBOMView)
 	addForward[wire.CopyComponentsArgs](s, "assembly_copy", "Adds an independent copy of each source occurrence, e.g.", wire.MethodAssemblyCopy)

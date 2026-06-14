@@ -1,0 +1,26 @@
+{
+  "id": "com.oblikovati.mcp-bridge",
+  "displayName": "Oblikovati MCP Bridge",
+  "version": "0.2.0",
+  "description": "Exposes the Oblikovati API over an MCP server (HTTP/SSE) so an LLM can drive the live application in real time.",
+  "capabilities": [
+    "commands",
+    "documents",
+    "parameters",
+    "model",
+    "features",
+    "sketch",
+    "sketch3d",
+    "workPlanes",
+    "materials",
+    "appearances",
+    "ribbon",
+    "theme",
+    "view",
+    "lighting",
+    "environment",
+    "clientGraphics",
+    "interactionGraphics",
+    "transaction"
+  ]
+}

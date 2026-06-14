@@ -71,18 +71,18 @@ jobs:
     env:
       CGO_ENABLED: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           repository: Oblikovati/Oblikovati.API
           ref: ${{ needs.check.outputs.api_sha }}
           path: _api
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: Oblikovati/Oblikovati
           ref: develop
           path: _app
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: false
@@ -103,7 +103,7 @@ jobs:
           esac
           go build -buildmode=c-shared -o "dist/oblikovati-mcp-bridge-$plat.$ext" .
           cp manifest.json "dist/manifest.json"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: bridge-${{ matrix.os }}
           path: dist/*
@@ -114,7 +114,7 @@ jobs:
     if: needs.check.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist
           merge-multiple: true

@@ -14,15 +14,15 @@ on:
         required: false
         default: ""
 
-# Least privilege at the workflow level; only the publish job is granted write (below).
-permissions:
-  contents: read
-
+# Least privilege: permissions are granted per job (none at the workflow level), so
+# only the publish job can write.
 jobs:
   # Resolve the API version to track and decide whether a build is needed (no existing
   # release for this API commit). Outputs feed the build/publish jobs.
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read # read API release tags via gh
     outputs:
       build: ${{ steps.decide.outputs.build }}
       api_sha: ${{ steps.decide.outputs.api_sha }}
@@ -61,6 +61,8 @@ jobs:
   build:
     needs: check
     if: needs.check.outputs.build == 'true'
+    permissions:
+      contents: read # checkout this repo + sibling API
     strategy:
       fail-fast: false
       matrix:

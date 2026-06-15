@@ -49,12 +49,11 @@ func buildGearPart(b *partBuilder, diaMM, radCm string) {
 // each on a rotational joint to the frame (one spin DOF each), coupled by a ROTATE-ROTATE
 // constraint at the 2:1 gear ratio — the velocity-coupling relationship (the last common
 // assembly relationship not yet exercised). The static structure is asserted (the constraint is
-// added and each gear keeps its one spin DOF); driving the driver turns the driver gear.
+// added and each gear keeps its one spin DOF); driving the driver turns BOTH gears.
 //
-// KNOWN GAP (filed): driving the driver does NOT yet turn the DRIVEN gear — the drive pins only
-// the driven joint and re-solves statically, and rotate-rotate removes no static DOF, so the
-// ratio is not propagated. This test records that (it asserts the driver moves but only logs
-// whether the driven follows) rather than failing on it.
+// The driven gear follows the driver through the ratio: the drive now walks the rotate-rotate
+// gear graph and pins each coupled gear's joint at the ratioed angle (Oblikovati/Oblikovati#883),
+// so driving one gear turns the whole train.
 func TestGearTrain(t *testing.T) {
 	s := app.NewSession()
 	if err := app.RegisterStandardCommands(s); err != nil {
@@ -114,9 +113,12 @@ func TestGearTrain(t *testing.T) {
 	if !occurrenceMoved(res, driver) {
 		t.Errorf("the driver gear did not move when its joint was driven")
 	}
-	// The driven gear's follow-through is the known drive-propagation gap (see the doc comment):
-	// log it rather than assert, so the test records the behaviour without failing.
-	t.Logf("gear train: driver driven through %d frames; driven gear followed = %v (rotate-rotate ratio drive-propagation is a known gap)", len(res.Frames), occurrenceMoved(res, driven))
+	// The driven gear must follow through the 2:1 ratio (Oblikovati/Oblikovati#883): driving the
+	// driver propagates through the rotate-rotate coupling to the driven gear's own joint.
+	if !occurrenceMoved(res, driven) {
+		t.Errorf("the driven gear did not follow when the driver was driven (rotate-rotate ratio not propagated)")
+	}
+	t.Logf("gear train: driver driven through %d frames; driven gear followed = %v", len(res.Frames), occurrenceMoved(res, driven))
 }
 
 // occurrenceMoved reports whether the given occurrence's placement differs between the first and

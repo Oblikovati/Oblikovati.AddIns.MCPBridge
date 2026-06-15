@@ -326,20 +326,6 @@ func nearestEdge(e []ref, target [3]float64) *ref {
 	return best
 }
 
-// nearestN returns the n edges closest to target (ascending), for probing the corner topology.
-func nearestN(e []ref, target [3]float64, n int) []ref {
-	cp := append([]ref{}, e...)
-	dist := func(r ref) float64 {
-		dx, dy, dz := r.p[0]-target[0], r.p[1]-target[1], r.p[2]-target[2]
-		return dx*dx + dy*dy + dz*dz
-	}
-	sort.Slice(cp, func(i, j int) bool { return dist(cp[i]) < dist(cp[j]) })
-	if len(cp) > n {
-		cp = cp[:n]
-	}
-	return cp
-}
-
 func filter(e []ref, keep func(ref) bool) []ref {
 	var out []ref
 	for _, r := range e {

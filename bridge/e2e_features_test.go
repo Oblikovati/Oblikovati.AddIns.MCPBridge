@@ -93,7 +93,7 @@ func TestE2EFeatureRegistryCoverage(t *testing.T) {
 		"extrude", "revolve", "rib", "emboss", "coil", "loft",
 		"fillet", "chamfer", "shell", "draft", "hole", "boss", "thread",
 		"combine", "thicken", "trim", "directEdit", "moveFace", "faceOffset", "deleteFace", "split",
-		"replaceFace", "moveBody", "splitSolid", "coreCavity", "hull",
+		"replaceFace", "moveBody", "bendPart", "splitSolid", "coreCavity", "hull",
 		"sweep", "patternRectangular", "patternCircular", "mirror", "patternSketchDriven",
 		"boundaryPatch", "ruledSurface", "surfaceOffset", "extend", "midSurface", "stitch", "sculpt",
 		"freeformBox", "freeformPlane", "freeformQuadBall", "mesh",
@@ -151,6 +151,21 @@ func TestE2EHole(t *testing.T) {
 	}
 	if _, faces2 := topology(t, cs); len(faces2) <= len(faces) {
 		t.Errorf("hole did not add the cylindrical wall face: faces %d -> %d", len(faces), len(faces2))
+	}
+}
+
+func TestE2EBendPart(t *testing.T) {
+	cs := boxClient(t)
+	// A bend line on its own sketch, crossing the box's bottom face (cm in sketch space).
+	callJSON(t, cs, "create_sketch", map[string]any{"plane": "XY"}, nil)
+	callJSON(t, cs, "add_sketch_entity", map[string]any{
+		"sketchIndex": 1, "kind": "line", "points": [][]float64{{2, 0}, {2, 3}},
+	}, nil)
+	// Folding the block adds the bent wall faces; health is the success signal.
+	if healthy, reason := applyFeature(t, cs, "bendPart", map[string]any{
+		"sketchIndex": 1, "lineIndex": 0, "bendType": "radiusAndAngle", "radius": "5 mm", "angle": "90 deg",
+	}); !healthy {
+		t.Fatalf("bendPart unhealthy: %s", reason)
 	}
 }
 

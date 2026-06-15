@@ -18,8 +18,8 @@ on:
         required: false
         default: ""
 
-permissions:
-  contents: read
+# Least privilege: permissions are granted per job (none at the workflow level), so only
+# the publish/sync jobs can write.
 
 # One release at a time (the sync job pushes to the default branch).
 concurrency:
@@ -34,6 +34,8 @@ jobs:
   # Resolve the API release to track and decide whether the bridge needs building.
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       build: ${{ steps.decide.outputs.build }}
       api_tag: ${{ steps.decide.outputs.api_tag }}
@@ -68,6 +70,8 @@ jobs:
   build:
     needs: check
     if: needs.check.outputs.build == 'true'
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:

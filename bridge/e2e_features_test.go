@@ -91,7 +91,7 @@ func TestE2EFeatureRegistryCoverage(t *testing.T) {
 	}
 	want := []string{
 		"extrude", "revolve", "rib", "emboss", "coil", "loft",
-		"fillet", "chamfer", "shell", "draft", "hole", "boss", "thread",
+		"fillet", "chamfer", "shell", "draft", "lip", "hole", "boss", "thread",
 		"combine", "thicken", "trim", "directEdit", "moveFace", "faceOffset", "deleteFace", "split",
 		"replaceFace", "moveBody", "bendPart", "splitSolid", "coreCavity", "hull",
 		"sweep", "patternRectangular", "patternCircular", "mirror", "patternSketchDriven",
@@ -176,5 +176,14 @@ func TestE2EDraft(t *testing.T) {
 	// is unchanged by a draft, so health is the success signal.
 	if healthy, reason := applyFeature(t, cs, "draft", map[string]any{"faceRefs": []string{faces[0]}, "angle": "3 deg"}); !healthy {
 		t.Fatalf("draft unhealthy: %s", reason)
+	}
+}
+
+func TestE2ELip(t *testing.T) {
+	cs := boxClient(t)
+	edges, _ := topology(t, cs)
+	// A raised lip bead along one edge adds the bead's walls; health is the success signal.
+	if healthy, reason := applyFeature(t, cs, "lip", map[string]any{"edgeRefs": []string{edges[0]}, "width": "2 mm", "height": "2 mm"}); !healthy {
+		t.Fatalf("lip unhealthy: %s", reason)
 	}
 }

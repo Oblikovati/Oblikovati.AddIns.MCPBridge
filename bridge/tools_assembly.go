@@ -19,6 +19,16 @@ type (
 		Name      string    `json:"name"`
 		Transform []float64 `json:"transform"`
 	}
+	// placeComponentCopiesArg is the batch form: many placements in one call. Each transform is a
+	// flat 16-cell array (re-marshaled to the JSON the host's types.Matrix accepts), like the
+	// single-placement args above.
+	placeComponentCopiesArg struct {
+		Source     uint64 `json:"source"`
+		Placements []struct {
+			Name      string    `json:"name"`
+			Transform []float64 `json:"transform"`
+		} `json:"placements"`
+	}
 	transformOccurrenceArg struct {
 		ID        uint64    `json:"id"`
 		Transform []float64 `json:"transform"`

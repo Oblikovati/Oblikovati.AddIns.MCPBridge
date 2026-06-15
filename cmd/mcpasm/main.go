@@ -138,6 +138,10 @@ func main() {
 	}
 	b.call("place_component", map[string]any{
 		"document": boxID, "name": "box:1", "transform": translation(-off, -off, 0)}, &first)
+	// Collect every remaining placement and send them in ONE batch call (place_component_copies) so
+	// the host recomputes once for the whole grid instead of once per copy — the difference between
+	// minutes and seconds for a 10k-component assembly.
+	placements := make([]map[string]any, 0, n*n-1)
 	count := 1
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
@@ -145,14 +149,15 @@ func main() {
 				continue
 			}
 			count++
-			b.call("place_component_copy", map[string]any{
-				"source":    first.Occurrence.ID,
+			placements = append(placements, map[string]any{
 				"name":      fmt.Sprintf("box:%d", count),
 				"transform": translation(float64(i)**pitch-off, float64(j)**pitch-off, 0),
-			}, nil)
+			})
 		}
 	}
-	fmt.Printf("placed %d copies of one box component (grid %d×%d)\n", count, n, n)
+	b.call("place_component_copies", map[string]any{
+		"source": first.Occurrence.ID, "placements": placements}, nil)
+	fmt.Printf("placed %d copies of one component in one batch (grid %d×%d)\n", count, n, n)
 
 	b.call("execute_command", map[string]any{"id": "View.Home"}, nil)
 	b.call("capture_viewport", map[string]any{"path": *out}, nil)

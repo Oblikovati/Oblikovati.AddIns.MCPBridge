@@ -19,12 +19,6 @@ import (
 // hole the boolean left), or inconsistently oriented (flipped normals) — all of which this
 // asserts step by step, with face/edge/vertex counts logged for the failing one.
 func TestFanBodyStaysManifold(t *testing.T) {
-	t.Skip("PARTIAL: defect 1 (twisted-loft warped quads) is FIXED in sweptSolid — the gross " +
-		"non-manifold deformity is gone and a clean penetration unions correctly. Defect 2 REMAINS: " +
-		"the blade crosses the CONCAVE faceted bore wall (partial penetration through a re-entrant " +
-		"faceted surface), leaving a few inconsistently-wound faces near the crossing (inverted " +
-		"normals). Needs the arrangement-robustness work. Unskip when the boolean handles partial " +
-		"penetration of a concave faceted wall.")
 	s := app.NewSession()
 	if err := app.RegisterStandardCommands(s); err != nil {
 		t.Fatalf("commands: %v", err)
@@ -176,18 +170,14 @@ func TestLoftBladeAloneIsManifold(t *testing.T) {
 	}
 }
 
-// TestBladeJoinBooleanIsTheDefect confirms the fan deformity is the loft→join BOOLEAN (not the
-// loft solid): it builds the body through the hub, builds the blade as a SEPARATE solid, then
-// joins the two with ops.Boolean directly and validates. Both inputs are valid solids; if their
-// union is non-manifold, the boolean is the bug — the blade only grazes the body (flush against
-// the faceted hub/bore walls), so the planar B-rep boolean finds no clean crossing to split and
-// stitches the blade as a coincident extra shell (the documented coplanar-faces limitation).
+// TestBladeJoinBooleanIsTheDefect is the #860 regression: it builds the body through the hub,
+// builds the blade as a SEPARATE solid, then joins the two with ops.Boolean directly and
+// validates. The blade bottom is coplanar with the body bottom and the blade's outer end crosses
+// the CONCAVE faceted bore wall (a partial penetration of a re-entrant faceted surface). Until
+// the arrangement-robustness fixes (collinear-edge imprint capture, coplanar imprint
+// material-clip, T-junction welding, filled-hole merge) this welded the blade as a coincident
+// non-manifold shell; it must now come back a clean manifold solid.
 func TestBladeJoinBooleanIsTheDefect(t *testing.T) {
-	t.Skip("PARTIAL: the twisted-blade warp (defect 1) is fixed; this still fails because the blade " +
-		"outer end crosses the CONCAVE bore wall (defect 2 — partial penetration through a faceted " +
-		"re-entrant surface). Confirmed: pulling the blade tip inside the bore makes the union valid. " +
-		"Unskip with the arrangement-robustness fix. See TestTwistedLoftUnionStaysManifold (GREEN) for " +
-		"the defect-1 regression.")
 	s := app.NewSession()
 	if err := app.RegisterStandardCommands(s); err != nil {
 		t.Fatalf("commands: %v", err)

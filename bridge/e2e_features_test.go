@@ -91,8 +91,9 @@ func TestE2EFeatureRegistryCoverage(t *testing.T) {
 	}
 	want := []string{
 		"extrude", "revolve", "rib", "emboss", "coil", "loft",
-		"fillet", "chamfer", "shell", "draft", "lip", "hole", "boss", "thread",
-		"combine", "thicken", "trim", "directEdit", "moveFace", "faceOffset", "deleteFace", "split",
+		"fillet", "chamfer", "shell", "draft", "lip", "hole", "boss", "grill", "thread",
+		"combine", "thicken", "trim", "directEdit", "moveFace", "faceOffset", "deleteFace",
+		"simplify", "unwrap", "modelTolerance", "split",
 		"replaceFace", "moveBody", "bendPart", "splitSolid", "coreCavity", "hull",
 		"sweep", "patternRectangular", "patternCircular", "mirror", "patternSketchDriven",
 		"boundaryPatch", "ruledSurface", "surfaceOffset", "extend", "midSurface", "stitch", "sculpt",
@@ -185,5 +186,72 @@ func TestE2ELip(t *testing.T) {
 	// A raised lip bead along one edge adds the bead's walls; health is the success signal.
 	if healthy, reason := applyFeature(t, cs, "lip", map[string]any{"edgeRefs": []string{edges[0]}, "width": "2 mm", "height": "2 mm"}); !healthy {
 		t.Fatalf("lip unhealthy: %s", reason)
+	}
+}
+
+func TestE2EGrill(t *testing.T) {
+	cs := freshPart(t)
+	// A 10×10×1 panel (sketch 0).
+	callJSON(t, cs, "create_sketch", map[string]any{"plane": "XY"}, nil)
+	callJSON(t, cs, "add_sketch_entity", map[string]any{"sketchIndex": 0, "kind": "rectangle", "points": [][]float64{{0, 0}, {10, 10}}}, nil)
+	callJSON(t, cs, "add_feature", map[string]any{"kind": "extrude", "args": map[string]any{"sketchIndex": 0, "profileIndex": 0, "distance": "1 cm", "operation": "new"}}, nil)
+	// A vent boundary (6×6) bridged by two ribs (inner rectangles ⇒ holes) on sketch 1.
+	callJSON(t, cs, "create_sketch", map[string]any{"plane": "XY"}, nil)
+	callJSON(t, cs, "add_sketch_entity", map[string]any{"sketchIndex": 1, "kind": "rectangle", "points": [][]float64{{2, 2}, {8, 8}}}, nil)
+	callJSON(t, cs, "add_sketch_entity", map[string]any{"sketchIndex": 1, "kind": "rectangle", "points": [][]float64{{3.75, 2.5}, {4.25, 7.5}}}, nil)
+	callJSON(t, cs, "add_sketch_entity", map[string]any{"sketchIndex": 1, "kind": "rectangle", "points": [][]float64{{5.75, 2.5}, {6.25, 7.5}}}, nil)
+	// Cutting the vent (bridged by the ribs) leaves one valid solid; health is the success signal.
+	if healthy, reason := applyFeature(t, cs, "grill", map[string]any{"sketchIndex": 1, "boundaries": []int{0}}); !healthy {
+		t.Fatalf("grill unhealthy: %s", reason)
+	}
+}
+
+func TestE2ESimplify(t *testing.T) {
+	cs := boxClient(t)
+	// fillVoids on a solid box is a no-op heal that must keep it a valid solid; health signals success.
+	if healthy, reason := applyFeature(t, cs, "simplify", map[string]any{"fillVoids": true}); !healthy {
+		t.Fatalf("simplify unhealthy: %s", reason)
+	}
+}
+
+func TestE2EUnwrap(t *testing.T) {
+	cs := freshPart(t)
+	callJSON(t, cs, "create_sketch", map[string]any{"plane": "XY"}, nil)
+	callJSON(t, cs, "add_sketch_entity", map[string]any{"sketchIndex": 0, "kind": "circle", "points": [][]float64{{0, 0}}, "radius": "20 mm"}, nil)
+	callJSON(t, cs, "add_feature", map[string]any{"kind": "extrude", "args": map[string]any{"sketchIndex": 0, "profileIndex": 0, "distance": "30 mm", "operation": "new"}}, nil)
+	// The cylindrical side face is the one at mid-height (the caps sit at z=0 and z=3 cm).
+	var rk struct {
+		Bodies []struct {
+			Faces []struct {
+				Key   string    `json:"key"`
+				Point []float64 `json:"point"`
+			} `json:"faces"`
+		} `json:"bodies"`
+	}
+	callJSON(t, cs, "get_reference_keys", nil, &rk)
+	var side string
+	for _, f := range rk.Bodies[0].Faces {
+		if len(f.Point) == 3 && f.Point[2] > 0.1 && f.Point[2] < 2.9 {
+			side = f.Key
+		}
+	}
+	if side == "" {
+		t.Fatal("no cylindrical side face found to unwrap")
+	}
+	if healthy, reason := applyFeature(t, cs, "unwrap", map[string]any{"faceRef": side}); !healthy {
+		t.Fatalf("unwrap unhealthy: %s", reason)
+	}
+}
+
+func TestE2EModelTolerance(t *testing.T) {
+	cs := boxClient(t)
+	_, faces := topology(t, cs)
+	// A GD&T feature-control frame + datum on a face: an annotation that changes no geometry,
+	// so health is the success signal.
+	if healthy, reason := applyFeature(t, cs, "modelTolerance", map[string]any{
+		"frames": []map[string]any{{"geometry": faces[0], "characteristic": "flatness", "value": "0.05 mm", "datums": []string{"A"}}},
+		"datums": []map[string]any{{"geometry": faces[0], "label": "A"}},
+	}); !healthy {
+		t.Fatalf("modelTolerance unhealthy: %s", reason)
 	}
 }

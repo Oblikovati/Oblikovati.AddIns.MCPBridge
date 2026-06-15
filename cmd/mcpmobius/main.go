@@ -37,8 +37,13 @@ func main() {
 	turns := flag.Float64("turns", 0.5, "twist over a full loop (0.5 = Möbius half-twist; 0 = plain orientable ring; 1 = full twist)")
 	bar := flag.Bool("bar", false, "diagnostic: instead of the strip, extrude one w×t rectangle by 2πR (a straight prism) and report its volume — isolates loft vs rectangle/volume-tool errors")
 	closed := flag.Bool("closed", true, "close the loft (wrap last section back to first); false leaves a C-shaped open band")
+	profile := flag.String("profile", "rect", "cross-section profile: rect | ellipse (both w×t — the elliptical band is rounded)")
 	flag.Parse()
 	closedLoft = *closed
+	if *profile != "rect" && *profile != "ellipse" {
+		fmt.Fprintf(os.Stderr, "mcpmobius: --profile must be rect or ellipse, got %q\n", *profile)
+		os.Exit(2)
+	}
 	if *bar {
 		if err := barCheck(*url, *R, *w, *t); err != nil {
 			fmt.Fprintln(os.Stderr, "mcpmobius:", err)
@@ -46,7 +51,7 @@ func main() {
 		}
 		return
 	}
-	if err := run(*url, *n, *R, *w, *t, *out, *turns); err != nil {
+	if err := run(*url, *n, *R, *w, *t, *out, *turns, *profile); err != nil {
 		fmt.Fprintln(os.Stderr, "mcpmobius:", err)
 		os.Exit(1)
 	}
@@ -61,7 +66,7 @@ type builder struct {
 // compare the closed-loop band against an open C-shaped one.
 var closedLoft = true
 
-func run(url string, n int, R, w, t float64, out string, turns float64) error {
+func run(url string, n int, R, w, t float64, out string, turns float64, profile string) error {
 	if n < 3 {
 		return fmt.Errorf("n must be >= 3, got %d", n)
 	}
@@ -79,7 +84,7 @@ func run(url string, n int, R, w, t float64, out string, turns float64) error {
 	}()
 	b := &builder{ctx, cs}
 
-	fmt.Printf("building a Möbius strip over MCP (N=%d, R=%g, w=%g, t=%g) — watch the viewport:\n", n, R, w, t)
+	fmt.Printf("building a Möbius strip over MCP (N=%d, R=%g, w=%g, t=%g, profile=%s) — watch the viewport:\n", n, R, w, t, profile)
 	b.call("close_all_documents", map[string]any{"force": true}) // fresh session; see fresh-test-session-close-docs
 	b.call("create_document", map[string]any{"type": "part", "name": fmt.Sprintf("mobius-%d", time.Now().UnixNano())})
 
@@ -100,12 +105,15 @@ func run(url string, n int, R, w, t float64, out string, turns float64) error {
 		wx, wy, wz := ca*cu, ca*su, sa   // width direction (sketch xAxis)
 		tx, ty, tz := -sa*cu, -sa*su, ca // thickness direction (sketch yAxis)
 		Cx, Cy := Rc*cu, Rc*su           // section center on the loop (z = 0), in cm
-		// Shift the plane origin to the band corner so the rectangle (anchored at the sketch
-		// origin, spanning [0,wc]×[0,tc]) is centered on C.
-		ox := Cx - 0.5*wc*wx - 0.5*tc*tx
-		oy := Cy - 0.5*wc*wy - 0.5*tc*ty
-		oz := 0 - 0.5*wc*wz - 0.5*tc*tz
-
+		// The ellipse is centered on the sketch origin, so the plane origin is the section center;
+		// the rectangle is anchored at the sketch origin, so its plane origin is shifted to the
+		// band corner (spanning [0,wc]×[0,tc]) to land centered on C.
+		ox, oy, oz := Cx, Cy, 0.0
+		if profile == "rect" {
+			ox -= 0.5*wc*wx + 0.5*tc*tx
+			oy -= 0.5*wc*wy + 0.5*tc*ty
+			oz -= 0.5*wc*wz + 0.5*tc*tz
+		}
 		var wp struct {
 			Index   int  `json:"index"`
 			Healthy bool `json:"healthy"`
@@ -120,14 +128,7 @@ func run(url string, n int, R, w, t float64, out string, turns float64) error {
 			SketchIndex int `json:"sketchIndex"`
 		}
 		b.callJSON("create_sketch", map[string]any{"workPlaneIndex": wp.Index}, &sk)
-		var rect struct {
-			Profiles int `json:"profiles"`
-		}
-		b.callJSON("sketch_rectangle", map[string]any{
-			"sketchIndex": sk.SketchIndex,
-			"width":       fmt.Sprintf("%g mm", w),
-			"height":      fmt.Sprintf("%g mm", t),
-		}, &rect)
+		b.addProfile(sk.SketchIndex, profile, w, t)
 		sections = append(sections, map[string]any{"sketchIndex": sk.SketchIndex, "profileIndex": 0})
 	}
 	fmt.Printf("  placed %d cross-section profiles\n", len(sections))
@@ -233,6 +234,28 @@ func barCheck(url string, R, w, t float64) error {
 	fmt.Printf("  volume=%.3f cm³ (exact w·t·L = %.3f cm³, ratio %.3f)\n", pp.Volume, wantV, pp.Volume/wantV)
 	fmt.Printf("  area=%.3f cm²\n", pp.Area)
 	return nil
+}
+
+// addProfile draws the cross-section on the sketch: a corner-anchored w×t rectangle, or an
+// ellipse centered at the sketch origin with its major axis along the sketch x-axis (the band
+// width direction), semi-axes w/2 × t/2 — the same w×t footprint, rounded.
+func (b *builder) addProfile(sketchIndex int, profile string, w, t float64) {
+	if profile == "ellipse" {
+		b.call("add_sketch_entity", map[string]any{
+			"sketchIndex": sketchIndex,
+			"kind":        "ellipse",
+			"points":      [][]float64{{0, 0}},
+			"axis":        []float64{1, 0},
+			"majorRadius": fmt.Sprintf("%g mm", w/2),
+			"minorRadius": fmt.Sprintf("%g mm", t/2),
+		})
+		return
+	}
+	b.call("sketch_rectangle", map[string]any{
+		"sketchIndex": sketchIndex,
+		"width":       fmt.Sprintf("%g mm", w),
+		"height":      fmt.Sprintf("%g mm", t),
+	})
 }
 
 func (b *builder) report() {

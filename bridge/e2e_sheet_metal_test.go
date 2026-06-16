@@ -193,3 +193,10 @@ func maxf(a, b float64) float64 {
 	}
 	return b
 }
+
+// NOTE: the M13-F04 Unfold/Refold features (registered above, exercised via features.add) are
+// not driven behaviourally here: topology()[0] over MCP is a degenerate corner edge (bounded
+// by a thin side face), whose ill-framed flange does not unfold cleanly, and the keys-only
+// topology reply gives no way to pick a wide-face edge by position. The body-transform unfold,
+// refold round-trip and cut-while-flat survival are deep-tested on a proper top-edge flange in
+// the source model/opregistry suites.

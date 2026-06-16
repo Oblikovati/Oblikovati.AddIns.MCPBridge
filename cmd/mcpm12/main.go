@@ -154,16 +154,12 @@ func (s *sweep) occZ(id uint64) float64 {
 		} `json:"occurrences"`
 	}
 	s.call("list_occurrences", nil, &tree)
-	var walk func() float64
-	walk = func() float64 {
-		for _, o := range tree.Occurrences {
-			if o.ID == id && len(o.Transform) == 16 {
-				return o.Transform[11] // row-major translation Z
-			}
+	for _, o := range tree.Occurrences {
+		if o.ID == id && len(o.Transform) == 16 {
+			return o.Transform[11] // row-major translation Z
 		}
-		return math.NaN()
 	}
-	return walk()
+	return math.NaN()
 }
 
 func main() {

@@ -18,6 +18,10 @@ func TestEndToEndFilletCornerRound(t *testing.T) {
 	if got := filletTopEdges(t, "miter"); got != 0 {
 		t.Errorf("cornerType=miter: %d sphere faces, want 0 (a crease, not a sphere)", got)
 	}
+	// setback rounds each corner into a sphere too (the third edge tapers to a run-out below it).
+	if got := filletTopEdges(t, "setback"); got != 4 {
+		t.Errorf("cornerType=setback: %d sphere faces, want 4 (a rounded corner per vertex)", got)
+	}
 }
 
 // filletTopEdges builds a 4x3x2 box, fillets its four top edges with the given cornerType, and

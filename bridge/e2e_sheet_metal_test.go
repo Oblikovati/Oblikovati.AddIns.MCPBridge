@@ -146,3 +146,50 @@ func TestE2ESheetMetalFeatures(t *testing.T) {
 	// deep-tested in the source model/opregistry suites; a follow-up makes the resolver match
 	// by point position so they can be driven over MCP too.
 }
+
+// TestE2ESheetMetalUnfold drives the M13-F04 flat pattern over the bridge: flange a base
+// sheet, then sheet_metal_unfold reports the developed flat — a positive gauge/area, extents
+// that exceed the folded footprint (the developed tab), and one fold line.
+func TestE2ESheetMetalUnfold(t *testing.T) {
+	cs := sheetMetalPart(t) // 40×30 mm base sheet
+	edges, _ := topology(t, cs)
+	if healthy, reason := applyFeature(t, cs, "sheetMetalFlange", map[string]any{"edge": edges[0], "height": "10 mm"}); !healthy {
+		t.Fatalf("flange unhealthy: %s", reason)
+	}
+
+	// types.Point2d marshals as a [x, y] array.
+	var flat struct {
+		Flat struct {
+			Extents struct {
+				Min [2]float64 `json:"min"`
+				Max [2]float64 `json:"max"`
+			} `json:"extents"`
+			Thickness float64 `json:"thickness"`
+			Area      float64 `json:"area"`
+			Bends     []struct {
+				Angle float64 `json:"angle"`
+			} `json:"bends"`
+		} `json:"flat"`
+	}
+	callJSON(t, cs, "sheet_metal_unfold", nil, &flat)
+
+	if flat.Flat.Thickness <= 0 || flat.Flat.Area <= 0 {
+		t.Errorf("flat gauge/area must be positive: %+v", flat.Flat)
+	}
+	w := flat.Flat.Extents.Max[0] - flat.Flat.Extents.Min[0]
+	h := flat.Flat.Extents.Max[1] - flat.Flat.Extents.Min[1]
+	if maxf(w, h) < 4.1 { // base is 4×3 cm; the developed tab pushes one extent past 4 cm
+		t.Errorf("flat extents = %.3f × %.3f cm, want a developed tab beyond the 4×3 base", w, h)
+	}
+	if len(flat.Flat.Bends) != 1 {
+		t.Errorf("flat fold lines = %d, want 1", len(flat.Flat.Bends))
+	}
+}
+
+// maxf returns the larger of two floats.
+func maxf(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}

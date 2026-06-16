@@ -98,6 +98,12 @@ func TestE2EFeatureRegistryCoverage(t *testing.T) {
 		"sweep", "patternRectangular", "patternCircular", "mirror", "patternSketchDriven",
 		"boundaryPatch", "ruledSurface", "surfaceOffset", "extend", "midSurface", "stitch", "sculpt",
 		"freeformBox", "freeformPlane", "freeformQuadBall", "mesh",
+		// Sheet metal (M13-F02): exercised over the bridge by TestE2ESheetMetal{Style,Features}
+		// (contour roll's centerline axis isn't expressible over the sketch wire, so it is
+		// deep-tested in the source model/opregistry suites instead).
+		"sheetMetalFace", "sheetMetalFlange", "sheetMetalHem", "sheetMetalBend", "sheetMetalFold",
+		"sheetMetalCorner", "sheetMetalContourFlange", "sheetMetalLoftedFlange", "sheetMetalContourRoll",
+		"sheetMetalCornerSeam",
 	}
 	for _, w := range want {
 		if !got[w] {

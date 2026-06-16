@@ -104,6 +104,8 @@ func TestE2EFeatureRegistryCoverage(t *testing.T) {
 		"sheetMetalFace", "sheetMetalFlange", "sheetMetalHem", "sheetMetalBend", "sheetMetalFold",
 		"sheetMetalCorner", "sheetMetalContourFlange", "sheetMetalLoftedFlange", "sheetMetalContourRoll",
 		"sheetMetalCornerSeam",
+		// Sheet metal (M13-F03): cut a profile through the part (through-all or to a depth).
+		"sheetMetalCut",
 	}
 	for _, w := range want {
 		if !got[w] {

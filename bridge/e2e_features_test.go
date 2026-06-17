@@ -104,8 +104,10 @@ func TestE2EFeatureRegistryCoverage(t *testing.T) {
 		"sheetMetalFace", "sheetMetalFlange", "sheetMetalHem", "sheetMetalBend", "sheetMetalFold",
 		"sheetMetalCorner", "sheetMetalContourFlange", "sheetMetalLoftedFlange", "sheetMetalContourRoll",
 		"sheetMetalCornerSeam",
-		// Sheet metal (M13-F03): cut a profile through the part (through-all or to a depth).
-		"sheetMetalCut",
+		// Sheet metal (M13-F03): cut a profile through the part (through-all or to a depth), rip a
+		// slit along a sketch line, punch every profile of a sketch, fold a stiffening lip, and
+		// mark a cosmetic bend. Deep-tested in the source model/opregistry suites.
+		"sheetMetalCut", "sheetMetalRip", "sheetMetalPunch", "sheetMetalLip", "sheetMetalCosmeticBend",
 		// Sheet metal (M13-F04): flatten/refold the part for the cut-while-flat workflow.
 		"sheetMetalUnfold", "sheetMetalRefold",
 	}

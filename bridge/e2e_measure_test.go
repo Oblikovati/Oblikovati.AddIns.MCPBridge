@@ -8,8 +8,9 @@ import (
 )
 
 // TestEndToEndAnalysisMeasure drives the measurement surface over MCP: an edge of a 40×30×50 mm box
-// reports a length in {40,30,50} mm and a face an area in {1200,1500,2000} mm² through the live
-// router→model→kernel stack (M18-F01 PBI-164, #428).
+// reports a length in {40,30,50} mm, a face an area in {1200,1500,2000} mm², and the minimum
+// distance between two faces their gap — through the live router→model→kernel stack
+// (M18-F01 PBI-164, #428).
 func TestEndToEndAnalysisMeasure(t *testing.T) {
 	cs := e2eClient(t, seededSession(t))
 
@@ -32,6 +33,21 @@ func TestEndToEndAnalysisMeasure(t *testing.T) {
 	callJSON(t, cs, "analysis_measure", map[string]any{"type": "area", "keyA": faces[0]}, &m)
 	if m.Unit != "mm²" || !nearOneOf(m.Value, 1200, 1500, 2000) {
 		t.Errorf("face area = %+v, want one of 1200/1500/2000 mm²", m)
+	}
+
+	// A box face has exactly one opposite face (gap = a box dimension) and four adjacent (gap 0).
+	positives := 0
+	for i := 1; i < len(faces); i++ {
+		callJSON(t, cs, "analysis_measure", map[string]any{"type": "minDistance", "keyA": faces[0], "keyB": faces[i]}, &m)
+		if m.Unit != "mm" || !nearOneOf(m.Value, 0, 30, 40, 50) {
+			t.Errorf("minDistance(face0, face%d) = %+v, want one of 0/30/40/50 mm", i, m)
+		}
+		if m.Value > 0.01 {
+			positives++
+		}
+	}
+	if positives != 1 {
+		t.Errorf("face0 had %d non-zero face gaps, want 1 (the opposite face)", positives)
 	}
 }
 

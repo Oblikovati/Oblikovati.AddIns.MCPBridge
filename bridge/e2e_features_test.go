@@ -91,7 +91,7 @@ func TestE2EFeatureRegistryCoverage(t *testing.T) {
 	}
 	want := []string{
 		"extrude", "revolve", "rib", "emboss", "coil", "loft",
-		"fillet", "ruleFillet", "snapFit", "rest", "chamfer", "shell", "draft", "lip", "hole", "boss", "grill", "thread",
+		"fillet", "ruleFillet", "fullRoundFillet", "snapFit", "rest", "chamfer", "shell", "draft", "lip", "hole", "boss", "grill", "thread",
 		"combine", "thicken", "trim", "directEdit", "moveFace", "faceOffset", "deleteFace",
 		"simplify", "unwrap", "modelTolerance", "split",
 		"replaceFace", "moveBody", "bendPart", "splitSolid", "coreCavity", "hull",

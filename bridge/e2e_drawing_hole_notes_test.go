@@ -23,7 +23,8 @@ func TestEndToEndDrawingHoleNotes(t *testing.T) {
 			RowCount   int    `json:"rowCount"`
 		} `json:"annotation"`
 	}
-	callJSON(t, cs, "drawing_add_hole_notes", map[string]any{"name": "HN", "viewName": "TOP"}, &hn)
+	// Combined grouping flows over the wire; one cylinder rim → one callout.
+	callJSON(t, cs, "drawing_add_hole_notes", map[string]any{"name": "HN", "viewName": "TOP", "quantity": "combined"}, &hn)
 
 	if hn.Annotation.Kind != "holeNote" || hn.Annotation.CurveCount == 0 {
 		t.Fatalf("hole notes = %+v, want a holeNote with a leadered callout", hn.Annotation)

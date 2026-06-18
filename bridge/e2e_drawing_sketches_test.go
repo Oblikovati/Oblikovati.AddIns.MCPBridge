@@ -30,4 +30,13 @@ func TestEndToEndDrawingSketches(t *testing.T) {
 	if sk.Sketch.Name != "S1" || sk.Sketch.EntityCount != 2 || sk.Sketch.CurveCount < 4+8 {
 		t.Fatalf("sketch = %+v, want S1 with 2 entities + rectangle/circle curves", sk.Sketch)
 	}
+
+	// A cross-hatch region adds many fill-line curves to the same sketch.
+	before := sk.Sketch.CurveCount
+	callJSON(t, cs, "drawing_add_hatch_region", map[string]any{
+		"sketchName": "S1", "xmm": 10.0, "ymm": 20.0, "widthMm": 50.0, "heightMm": 30.0, "pattern": "cross",
+	}, &sk)
+	if sk.Sketch.CurveCount <= before {
+		t.Fatalf("after a hatch region the sketch has %d curves, want more than before (%d)", sk.Sketch.CurveCount, before)
+	}
 }

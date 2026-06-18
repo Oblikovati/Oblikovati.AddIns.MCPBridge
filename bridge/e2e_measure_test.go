@@ -9,8 +9,8 @@ import (
 
 // TestEndToEndAnalysisMeasure drives the measurement surface over MCP: an edge of a 40×30×50 mm box
 // reports a length in {40,30,50} mm, a face an area in {1200,1500,2000} mm², the minimum distance
-// between two faces their gap, and the angle between two faces 90°/180° — through the live
-// router→model→kernel stack (M18-F01 PBI-164, #428).
+// between two faces their gap, the angle between two faces 90°/180°, and a face's loop length its
+// perimeter — through the live router→model→kernel stack (M18-F01 PBI-164, #428).
 func TestEndToEndAnalysisMeasure(t *testing.T) {
 	cs := e2eClient(t, seededSession(t))
 
@@ -56,6 +56,12 @@ func TestEndToEndAnalysisMeasure(t *testing.T) {
 		if m.Unit != "deg" || (!nearOneOf(m.Value, 90) && !nearOneOf(m.Value, 180)) {
 			t.Errorf("angle(face0, face%d) = %+v, want 90 or 180 deg", i, m)
 		}
+	}
+
+	// A box face's loop length (perimeter) is 2(w+h) ∈ {140,160,180} mm for the 40×30×50 box.
+	callJSON(t, cs, "analysis_measure", map[string]any{"type": "loopLength", "keyA": faces[0]}, &m)
+	if m.Unit != "mm" || !nearOneOf(m.Value, 140, 160, 180) {
+		t.Errorf("loopLength(face0) = %+v, want one of 140/160/180 mm", m)
 	}
 }
 

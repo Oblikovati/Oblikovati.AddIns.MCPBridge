@@ -487,6 +487,7 @@ func (s *Server) registerGeneratedTools() {
 	addForward[wire.DeleteBlockDefinitionArgs](s, "sketch_block_definitions_delete", "Removes a block definition by name.", wire.MethodSketchBlockDefinitionDelete)
 	addForward[noArgs](s, "sketch_block_definitions_list", "Enumerates the part's block definitions.", wire.MethodSketchBlockDefinitionList)
 	addForward[wire.SketchArgs](s, "sketch_block_instances", "Enumerates a sketch's placed block instances.", wire.MethodSketchListBlockInstances)
+	addForward[wire.SketchArgs](s, "sketch_dependents", "List the features that consume a sketch — what a delete/edit would affect.", wire.MethodSketchDependents)
 	addForward[wire.EditTextArgs](s, "sketch_edit_text", "Applies a partial edit to an existing sketch text entity (only the set fields), returning the entity's resolved style.", wire.MethodSketchEditText)
 	addForward[wire.SketchArgs](s, "sketch_get_custom_line_type", "Returns the sketch's loaded custom line-type definition, if any.", wire.MethodSketchGetCustomLineType)
 	addForward[noArgs](s, "sketch_get_inference_options", "Reads the current sketch inference configuration.", wire.MethodSketchGetInferenceOptions)

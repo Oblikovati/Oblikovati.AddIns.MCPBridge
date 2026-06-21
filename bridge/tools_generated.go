@@ -129,6 +129,7 @@ func (s *Server) registerGeneratedTools() {
 	addForward[wire.BrepIdenticalBodiesArgs](s, "brep_identical_bodies", "Groups congruent bodies.", wire.MethodBrepIdenticalBodies)
 	addForward[wire.BrepImprintArgs](s, "brep_imprint", "Face-splits two bodies along their intersections without removing material.", wire.MethodBrepImprint)
 	addForward[struct{}](s, "brep_list", "Enumerates the live transient handles.", wire.MethodBrepList)
+	addForward[wire.BrepOffsetFacesArgs](s, "brep_offset_faces", "Offsets the named faces of a body by a distance along their normals; the offset faces come back on a new transient body.", wire.MethodBrepOffsetFaces)
 	addForward[wire.BrepRuledSurfaceArgs](s, "brep_ruled_surface", "Builds the ruled surface between two wire sections.", wire.MethodBrepRuledSurface)
 	addForward[wire.BrepSectionArgs](s, "brep_section_with_plane", "Sections a body with a plane; the section curves come back as wires on a new transient body.", wire.MethodBrepSectionWithPlane)
 	addForward[wire.BrepSilhouetteArgs](s, "brep_silhouette", "Traces one face's silhouette from a view direction.", wire.MethodBrepSilhouette)

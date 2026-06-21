@@ -110,6 +110,7 @@ func (s *Server) registerGeneratedTools() {
 	addForward[wire.IsPointInsideArgs](s, "body_is_point_inside", "Classifies a point against the body's material (or one shell's bounded region).", wire.MethodBodyIsPointInside)
 	addForward[struct{}](s, "body_list", "Enumerates the active part's bodies (name, solid flag, visibility, face/edge counts).", wire.MethodBodyList)
 	addForward[wire.LocateUsingPointArgs](s, "body_locate_using_point", "Finds the topology entity nearest the point within the proximity tolerance (kind empty = any of vertex/edge/face).", wire.MethodBodyLocateUsingPoint)
+	addForward[wire.MinimumDistanceArgs](s, "body_minimum_distance", "Minimum distance between the body and a transient probe polyline (flat x,y,z list in cm); radius widens the probe into a swept-tool cylinder; returns the distance (cm), 0 when it touches or enters the body — the out-of-process projection of MeasureTools.GetMinimumDistance for a transient operand.", wire.MethodBodyMinimumDistance)
 	addForward[wire.BodyPhysicalPropertiesArgs](s, "body_physical_properties", "Geometry and mass properties (volume, area, mass, centroid, inertia) of one body of the active part.", wire.MethodBodyPhysicalProps)
 	addForward[wire.BodyRangeBoxArgs](s, "body_range_box", "Returns the body's range box (topology, precise or oriented).", wire.MethodBodyRangeBox)
 	addForward[wire.BodyRenameArgs](s, "body_rename", "Set the display name of one body of the active part by index (empty reverts to the default).", wire.MethodBodyRename)

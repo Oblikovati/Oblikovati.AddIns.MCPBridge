@@ -72,13 +72,17 @@ jobs:
     if: needs.check.outputs.build == 'true'
     permissions:
       contents: read
+    # One native runner per target platform, so the host can install the binary for its own
+    # OS+arch (the catalogue stores a bundle per platform; #1164). c-shared is cgo, so each
+    # platform must be built on its own native runner — no cross-compiling.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-14, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       CGO_ENABLED: "1"
+      ADDINS_PUBLISH_TOKEN: ${{ secrets.ADDINS_PUBLISH_TOKEN }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -91,16 +95,36 @@ jobs:
       - name: Regenerate tool surface from the API release
         run: go generate ./...
       - name: Build c-shared library
+        shell: bash
         run: |
           set -euo pipefail
+          arch=$(uname -m)
+          case "$arch" in x86_64|amd64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; esac
           case "$RUNNER_OS" in
-            Windows) ext=dll; plat=windows-amd64 ;;
-            macOS)   ext=dylib; plat=darwin-$(uname -m) ;;
-            *)       ext=so; plat=linux-amd64 ;;
+            Windows) ext=dll; os=windows ;;
+            macOS)   ext=dylib; os=darwin ;;
+            *)       ext=so;  os=linux ;;
           esac
+          plat="$os-$arch"
           mkdir -p dist
           go build -buildmode=c-shared -o "dist/oblikovati-mcp-bridge-$plat.$ext" .
           cp manifest.json dist/manifest.json
+          # Hand the resolved platform + library path to the publish step.
+          echo "PLAT=$plat" >> "$GITHUB_ENV"
+          echo "LIB=dist/oblikovati-mcp-bridge-$plat.$ext" >> "$GITHUB_ENV"
+      - name: Publish bundle to the add-in catalogue
+        # Only when the publish token is configured. The API major.minor comes from the API
+        # release this build tracked (api-vX.Y.Z -> X.Y).
+        if: ${{ env.ADDINS_PUBLISH_TOKEN != '' }}
+        shell: bash
+        env:
+          ADDINS_PUBLISH_URL: ${{ secrets.ADDINS_PUBLISH_URL }}
+          API_TAG: ${{ needs.check.outputs.api_tag }}
+        run: |
+          set -euo pipefail
+          api="${API_TAG#v}" # v0.85.0 -> 0.85.0
+          api="${api%.*}"    # 0.85.0  -> 0.85
+          scripts/publish-catalogue.sh "$PLAT" "$LIB" "$api"
       - uses: actions/upload-artifact@v6
         with:
           name: bridge-${{ matrix.os }}

@@ -40,12 +40,12 @@ func TestEndToEndRibbonReflectsDocument(t *testing.T) {
 	}
 	found := false
 	for _, tab := range r.Tabs {
-		if tab.Name == "3D Model" {
+		if tab.Name == "Create & Modify" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("Part ribbon over MCP has no 3D Model tab: %+v", r.Tabs)
+		t.Errorf("Part ribbon over MCP has no Create & Modify tab: %+v", r.Tabs)
 	}
 }
 

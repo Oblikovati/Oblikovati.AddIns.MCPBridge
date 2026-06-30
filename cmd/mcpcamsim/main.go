@@ -73,5 +73,13 @@ func main() {
 	d.cmd("CAM.SimPlayPause")
 	time.Sleep(6 * time.Second)
 	d.shot("/tmp/cam-sim-done.png")
+
+	// Switch the simulator's View dropdown to Path via the new set_panel_value tool, so the
+	// rapid/feed-coloured toolpath overlay is shown over the (now visible) part.
+	d.call("set_panel_value", map[string]any{
+		"windowId": "com.oblikovati.cam.sim.panel", "controlId": "sim_view", "value": "Path"})
+	time.Sleep(2 * time.Second)
+	d.cmd("View.Home")
+	d.shot("/tmp/cam-sim-path.png")
 	fmt.Println("done")
 }

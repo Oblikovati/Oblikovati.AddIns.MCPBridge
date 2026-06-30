@@ -37,6 +37,7 @@ type (
 // method-backed tools, are registered separately from the server; see resources.go.)
 func (s *Server) registerTools() {
 	s.registerGeneratedTools()
+	s.registerPanelTools() // hand-registered; see tools_panel.go
 }
 
 // addSummarizedIn is [addSummarized] for a tool that takes typed input In: it forwards In to

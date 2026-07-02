@@ -124,6 +124,7 @@ var parts = []part{
 	{"squatrim", runSquatRim},
 	{"facetdiag", runFacetDiag},
 	{"smoothwire", runSmoothWire},
+	{"microplate", runMicroPlate},
 }
 
 func main() {

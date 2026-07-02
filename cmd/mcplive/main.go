@@ -121,6 +121,7 @@ var parts = []part{
 	{"smddiode", runSmdDiode},
 	{"smdtant", runSmdTant},
 	{"singlecableclip", runSingleCableClip},
+	{"squatrim", runSquatRim},
 }
 
 func main() {

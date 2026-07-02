@@ -123,6 +123,7 @@ var parts = []part{
 	{"singlecableclip", runSingleCableClip},
 	{"squatrim", runSquatRim},
 	{"entityseam", runEntitySeam},
+	{"constraintseam", runConstraintSeam},
 }
 
 func main() {

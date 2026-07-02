@@ -38,6 +38,7 @@ var parts = []part{
 	{"loft", runLoft},
 	{"pcb", runPcb},
 	{"pulley", runPulley},
+	{"revtaper", runRevTaper},
 	{"capscrew", runCapScrew},
 	{"boxtray", runBoxTray},
 	{"leadnut", runLeadnut},

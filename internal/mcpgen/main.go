@@ -266,21 +266,51 @@ func recordCompositeVars(vars map[string]ast.Expr, as *ast.AssignStmt) {
 	}
 }
 
-// wireCall matches a c.call(wire.MethodX, ARG, …) and returns the method-constant
-// name and the request argument; ok is false for any other call.
+// wireCall matches either shape of a wire delegate — the legacy method form
+// recv.call(wire.MethodX, ARG, &r) and the generic function form
+// call[Resp](recv, wire.MethodX, ARG) (audit G2, Oblikovati/Oblikovati#1650) — and
+// returns the method-constant name and the request argument; ok is false otherwise.
 func wireCall(call *ast.CallExpr) (method string, arg ast.Expr, ok bool) {
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "call" || len(call.Args) < 2 {
+	methodArg, reqArg, ok := callShape(call)
+	if !ok {
 		return "", nil, false
 	}
-	ms, ok := call.Args[0].(*ast.SelectorExpr)
+	ms, ok := methodArg.(*ast.SelectorExpr)
 	if !ok {
 		return "", nil, false
 	}
 	if pkg, ok := ms.X.(*ast.Ident); !ok || pkg.Name != "wire" {
 		return "", nil, false
 	}
-	return ms.Sel.Name, call.Args[1], true
+	return ms.Sel.Name, reqArg, true
+}
+
+// callShape returns the method-constant and request arguments of a wire delegate,
+// distinguishing the legacy method call recv.call(method, arg, …) from the generic
+// call[Resp](recv, method, arg) function form, whose leading receiver arg shifts the
+// method and request one slot right.
+func callShape(call *ast.CallExpr) (methodArg, reqArg ast.Expr, ok bool) {
+	switch fun := call.Fun.(type) {
+	case *ast.SelectorExpr: // recv.call(method, arg, &r)
+		if fun.Sel.Name == "call" && len(call.Args) >= 2 {
+			return call.Args[0], call.Args[1], true
+		}
+	case *ast.IndexExpr: // call[Resp](recv, method, arg)
+		if isCallIdent(fun.X) && len(call.Args) >= 3 {
+			return call.Args[1], call.Args[2], true
+		}
+	case *ast.IndexListExpr: // call[A, B](recv, method, arg) — a future multi-type-param form
+		if isCallIdent(fun.X) && len(call.Args) >= 3 {
+			return call.Args[1], call.Args[2], true
+		}
+	}
+	return nil, nil, false
+}
+
+// isCallIdent reports whether e is the bare identifier `call` (the generic delegate).
+func isCallIdent(e ast.Expr) bool {
+	id, ok := e.(*ast.Ident)
+	return ok && id.Name == "call"
 }
 
 // argType resolves the request DTO type string from c.call's second argument: a

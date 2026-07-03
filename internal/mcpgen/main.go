@@ -3,8 +3,9 @@
 // Command mcpgen generates bridge/tools_generated.go from the api/client mcp:
 // annotations — the API is the single source of truth for the MCP tool surface.
 //
-// For every client method `func (...) M(...) (Result, error)` that ends in
-// `c.call(wire.MethodX, ARG, &r)`, mcpgen reads the doc-comment directives:
+// For every client method `func (...) M(...) (Result, error)` whose body carries a
+// wire call — `c.call(wire.MethodX, ARG, &r)` or the generic
+// `call[Resp](c, wire.MethodX, ARG)` — mcpgen reads the doc-comment directives:
 //
 //	mcp:tool <name>        expose as an MCP tool named <name>
 //	mcp:summary <text>     the LLM-facing description
@@ -266,21 +267,52 @@ func recordCompositeVars(vars map[string]ast.Expr, as *ast.AssignStmt) {
 	}
 }
 
-// wireCall matches a c.call(wire.MethodX, ARG, …) and returns the method-constant
-// name and the request argument; ok is false for any other call.
+// wireCall matches either wire-call body shape used by api/client and returns the
+// method-constant name and the request argument; ok is false for any other call.
+// The two shapes (Oblikovati/Oblikovati#1650 audit G2 added the generic one):
+//
+//	c.call(wire.MethodX, ARG, &r)          — the untyped Client.call method
+//	call[Resp](c, wire.MethodX, ARG)       — the generic package-level helper
 func wireCall(call *ast.CallExpr) (method string, arg ast.Expr, ok bool) {
+	if m, a, ok := untypedWireCall(call); ok {
+		return m, a, true
+	}
+	return genericWireCall(call)
+}
+
+// untypedWireCall matches c.call(wire.MethodX, ARG, …) — the selector form.
+func untypedWireCall(call *ast.CallExpr) (method string, arg ast.Expr, ok bool) {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok || sel.Sel.Name != "call" || len(call.Args) < 2 {
 		return "", nil, false
 	}
-	ms, ok := call.Args[0].(*ast.SelectorExpr)
+	return wireMethodConst(call.Args[0], call.Args[1])
+}
+
+// genericWireCall matches call[Resp](c, wire.MethodX, ARG) — the generic form. A
+// single type argument always parses as *ast.IndexExpr, so no IndexListExpr case.
+func genericWireCall(call *ast.CallExpr) (method string, arg ast.Expr, ok bool) {
+	idx, ok := call.Fun.(*ast.IndexExpr)
+	if !ok || len(call.Args) < 3 {
+		return "", nil, false
+	}
+	if fn, ok := idx.X.(*ast.Ident); !ok || fn.Name != "call" {
+		return "", nil, false
+	}
+	return wireMethodConst(call.Args[1], call.Args[2])
+}
+
+// wireMethodConst validates that methodExpr is a wire.MethodX selector and pairs
+// its constant name with the request argument.
+func wireMethodConst(methodExpr, req ast.Expr) (method string, arg ast.Expr, ok bool) {
+	ms, ok := methodExpr.(*ast.SelectorExpr)
 	if !ok {
 		return "", nil, false
 	}
 	if pkg, ok := ms.X.(*ast.Ident); !ok || pkg.Name != "wire" {
 		return "", nil, false
 	}
-	return ms.Sel.Name, call.Args[1], true
+	return ms.Sel.Name, req, true
 }
 
 // argType resolves the request DTO type string from c.call's second argument: a

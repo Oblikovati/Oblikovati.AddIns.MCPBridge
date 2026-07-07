@@ -452,6 +452,7 @@ func (s *Server) registerGeneratedTools() {
 	addForward[wire.NearestPointArgs](s, "point_clouds_nearest_point", "Find a point cloud's scan point nearest a model-space query (snap).", wire.MethodPointCloudsNearestPoint)
 	addForward[wire.SetPointCloudCropActiveArgs](s, "point_clouds_set_crop_active", "Toggle whether a point cloud crop volume limits display.", wire.MethodPointCloudsSetCropActive)
 	addForward[wire.SetPointCloudDensityArgs](s, "point_clouds_set_density", "Set an attached point cloud's display point budget by name (0 = show all).", wire.MethodPointCloudsSetDensity)
+	addForward[wire.SetPointCloudDisplayModeArgs](s, "point_clouds_set_display_mode", "Set an attached point cloud's viewport colouring mode by name (default, rgb, or intensity).", wire.MethodPointCloudsSetDisplayMode)
 	addForward[wire.SetPointCloudScaleArgs](s, "point_clouds_set_scale", "Set an attached point cloud's uniform scale by name (must be positive).", wire.MethodPointCloudsSetScale)
 	addForward[wire.SetPointCloudTransformArgs](s, "point_clouds_set_transform", "Set an attached point cloud's placement transform by name.", wire.MethodPointCloudsSetTransform)
 	addForward[wire.SetPointCloudVisibleArgs](s, "point_clouds_set_visible", "Show or hide an attached point cloud by name.", wire.MethodPointCloudsSetVisible)

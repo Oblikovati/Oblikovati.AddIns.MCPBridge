@@ -76,9 +76,10 @@ jobs:
           go-version-file: go.mod
           cache: false
       - uses: ./.github/actions/siblings
-      - run: go install gotest.tools/gotestsum@v1.13.0
+      # gotestsum comes from this module's `tool` directive, so its version is pinned by
+      # go.mod/go.sum rather than resolved at install time (githubactions:S8545).
       - name: Test
-        run: gotestsum --junitfile test-results-${{ matrix.os }}.xml -- -coverprofile=coverage.out -covermode=count ./...
+        run: go tool gotestsum --junitfile test-results-${{ matrix.os }}.xml -- -coverprofile=coverage.out -covermode=count ./...
       - uses: actions/upload-artifact@v6
         if: always()
         with:

@@ -128,6 +128,8 @@ var parts = []part{
 	{"facetdiag", runFacetDiag},
 	{"smoothwire", runSmoothWire},
 	{"microplate", runMicroPlate},
+	{"entityseam", runEntitySeam},
+	{"constraintseam", runConstraintSeam},
 }
 
 func main() {

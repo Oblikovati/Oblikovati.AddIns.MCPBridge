@@ -97,6 +97,9 @@ func TestE2EFeatureRegistryCoverage(t *testing.T) {
 		"replaceFace", "moveBody", "bendPart", "splitSolid", "coreCavity", "hull",
 		"sweep", "patternRectangular", "patternCircular", "mirror", "patternSketchDriven",
 		"boundaryPatch", "ruledSurface", "surfaceOffset", "extend", "midSurface", "stitch", "sculpt",
+		// Class-A surfacing (M36): deep-tested by TestE2E{NetworkSurface,FairSurfaceOnANetwork,
+		// FitSurfaceToAScan} and TestE2EFillAndBridgeSurfaceReach in e2e_features_classa_test.go.
+		"fillSurface", "bridgeSurface", "networkSurface", "fairSurface", "fitSurface",
 		"freeformBox", "freeformPlane", "freeformQuadBall", "mesh",
 		// Sheet metal (M13-F02): exercised over the bridge by TestE2ESheetMetal{Style,Features}
 		// (contour roll's centerline axis isn't expressible over the sketch wire, so it is

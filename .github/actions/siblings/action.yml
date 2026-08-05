@@ -56,6 +56,12 @@ runs:
         set -euo pipefail
         go mod edit -replace oblikovati.org/api="$GITHUB_WORKSPACE/_api"
         go mod edit -replace oblikovati.org="$GITHUB_WORKSPACE/_app"
+        # Re-resolve the graph against what the siblings actually require. The application
+        # module can raise a shared dependency (it did: golang.org/x/sys) and this repo's
+        # go.sum then lacks that version — `go build`/`go test` cope, but golangci-lint's
+        # package loader does not: it reports "no go files to analyze" and every lint run
+        # failed with no other diagnostic (#95).
+        go mod tidy
         # Vendor the C ABI header so cgo builds can -I include/ (harmless for non-cgo jobs).
         api_dir=$(go list -m -f '{{.Dir}}' oblikovati.org/api)
         mkdir -p include

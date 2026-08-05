@@ -38,6 +38,7 @@ type Server struct {
 	http   *http.Server
 	events *eventBuffer
 	addr   string // resolved listen address, valid after Start
+	tools  int    // how many tools registered, for the activation log line
 }
 
 // NewServer builds the MCP server and registers all tools. It errors on a nil caller.
@@ -76,6 +77,11 @@ func (s *Server) Start(addr string) error {
 // Addr is the resolved listen address (host:port), valid after Start. Useful when
 // Start was given a :0 port.
 func (s *Server) Addr() string { return s.addr }
+
+// ToolCount is how many tools this server registered. It goes in the activation log so the
+// operator can see WHICH build answered — a client that lands on another instance's port gets a
+// different, usually older, tool surface (#2035).
+func (s *Server) ToolCount() int { return s.tools }
 
 // Stop gracefully shuts the HTTP server down (no-op if never started).
 func (s *Server) Stop() error {

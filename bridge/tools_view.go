@@ -16,3 +16,16 @@ type setCameraArg struct {
 	Up       []float64 `json:"up"`
 	FOV      float64   `json:"fov"`
 }
+
+// Local tool input for viewport_click (mcp:input override), for exactly the reason above: the wire
+// DTO's Point is a types.Point, whose JSON form is the flat [x,y,z] array a caller sends but which
+// reflects as an object, so the SDK's validator would reject it.
+type clickViewportArg struct {
+	X      float64   `json:"x,omitempty"`
+	Y      float64   `json:"y,omitempty"`
+	Point  []float64 `json:"point,omitempty"`
+	Button string    `json:"button,omitempty"`
+	Shift  bool      `json:"shift,omitempty"`
+	Ctrl   bool      `json:"ctrl,omitempty"`
+	Alt    bool      `json:"alt,omitempty"`
+}

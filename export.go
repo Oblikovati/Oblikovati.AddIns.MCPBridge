@@ -18,6 +18,7 @@ package main
 */
 import "C"
 import (
+	"fmt"
 	"os"
 	"sync"
 	"unsafe"
@@ -67,12 +68,13 @@ func ObkAddInActivate(call C.ObkHostCall, freeFn C.ObkHostFree) C.int {
 	hostCall, hostFree = call, freeFn
 	srv, err := bridge.NewServer(cgoHostCaller{})
 	if err != nil {
-		return C.OBK_ERR
+		return activationFailed("building the MCP server", err)
 	}
 	if err := srv.Start(addr()); err != nil {
-		return C.OBK_ERR
+		return activationFailed("starting the MCP server on "+addr(), err)
 	}
 	server = srv
+	logf("mcp-bridge: serving %d tools on %s", srv.ToolCount(), srv.Addr())
 	return C.OBK_OK
 }
 
@@ -110,6 +112,26 @@ func addr() string {
 		return a
 	}
 	return defaultAddr
+}
+
+// activationFailed reports WHY activation failed and returns the ABI's error code.
+//
+// The C ABI hands the host only an int, so the reason has to go to stderr — which the host
+// captures into its log. Without it a failure read as `ObkAddInActivate ... returned 1` and
+// nothing more, and the commonest cause is invisible: another Oblikovati instance already owns
+// the MCP port, so a client that connects lands on THAT instance and drives the wrong model.
+// The symptom is a tool the other build does not have coming back "unknown tool" while every
+// older tool works (#2035).
+func activationFailed(what string, err error) C.int {
+	logf("mcp-bridge: %s failed: %v", what, err)
+	logf("mcp-bridge: if another Oblikovati is already running, close it or point this one " +
+		"elsewhere with OBK_MCP_ADDR=host:port")
+	return C.OBK_ERR
+}
+
+// logf writes one diagnostic line to stderr, where the host's log picks it up.
+func logf(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
 }
 
 // main is required for a Go program but never runs: this binary is built with

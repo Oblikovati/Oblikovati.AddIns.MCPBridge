@@ -123,6 +123,7 @@ var parts = []part{
 	{"smdtant", runSmdTant},
 	{"singlecableclip", runSingleCableClip},
 	{"squatrim", runSquatRim},
+	{"straddlinghole", runStraddlingHole},
 }
 
 func main() {

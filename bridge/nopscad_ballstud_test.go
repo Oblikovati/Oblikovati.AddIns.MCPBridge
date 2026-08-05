@@ -17,6 +17,10 @@ import (
 // fixed in the boolean (kernel #871/#877/#880); a ball stud is the smallest faithful part that
 // drives it, and `feat` gates every step on one manifold/closed/oriented solid.
 //
+// What it does NOT yet prove is that the union stays EXACT: there is no analytic path for
+// sphere ∪ cylinder, so the operation degrades to triangle-soup CSG (see [ballStudBand] and
+// Oblikovati#2036). The part is still a valid solid of the right size, which is what this gates.
+//
 // Reference: NopSCADlib rod ends / ball studs (sphere head ⌀ on a shank ⌀).
 func TestNopBallStud(t *testing.T) {
 	s := app.NewSession()
@@ -59,24 +63,73 @@ func TestNopBallStud(t *testing.T) {
 		"sketchIndex": skBall, "profileIndex": 0, "axisRef": "origin/axis/y", "angle": "360 deg", "operation": "join",
 	})
 
-	// Volume sanity: the union is the sphere plus the part of the shank that sticks out past it.
-	// The shank emerges from the sphere at y = sqrt(r_ball² − r_shank²); beyond that it is a free
-	// cylinder of length (shank_len − that), so V = sphere + π·r_shank²·(shank_len − y_emerge).
-	wantVol := func(ballMM, shankMM, lenMM float64) float64 {
-		rB, rS, L := ballMM/20, shankMM/20, lenMM/10 // mm -> cm (diameters halved)
-		yEmerge := math.Sqrt(rB*rB - rS*rS)
-		sphere := math.Pi * rB * rB * rB * 4.0 / 3.0
-		freeShank := math.Pi * rS * rS * (L - yEmerge)
-		return sphere + freeShank
-	}
-	if got, w := partVolume(t, cs), wantVol(10, 6, 15); math.Abs(got-w)/w > 0.03 {
-		t.Errorf("ball stud volume = %.6f cm^3, want ~%.6f (3%% faceting band)", got, w)
+	if got, w := partVolume(t, cs), ballStudVolume(10, 6, 15); math.Abs(got-w)/w > ballStudBand {
+		t.Errorf("ball stud volume = %.6f cm^3, want ~%.6f (%.0f%% band)", got, w, 100*ballStudBand)
 	}
 
 	// Parametric resize: grow the head and confirm the union rebuilds and the volume tracks.
 	callJSON(t, cs, "set_parameter", map[string]any{"name": "ball_d", "expression": "14 mm"}, nil)
 	b.mustValid("resized")
-	if got, w := partVolume(t, cs), wantVol(14, 6, 15); math.Abs(got-w)/w > 0.03 {
+	if got, w := partVolume(t, cs), ballStudVolume(14, 6, 15); math.Abs(got-w)/w > ballStudBand {
 		t.Errorf("resized ball stud volume = %.6f cm^3, want ~%.6f", got, w)
+	}
+}
+
+// ballStudBand is how far the measured volume may sit below the exact value. The sphere ∪ cylinder
+// union has NO exact analytic path in the curved boolean (kernel/ops curvedExactPaths covers ruled
+// operands — cylinders and cones — and a sphere is not ruled), so the operation falls back to
+// triangle-soup CSG and ships an INSCRIBED polyhedron of ~500 facets whose volume is ~1.34% low.
+// The band is sized to that fallback, not to tessellation: each operand measured on its own is
+// exact to 0.03%, and the union's error does NOT shrink with tessellation quality (it is flat from
+// a 4° to a 0.1° angular tolerance) because the deficit is in the B-rep, not in the mesh.
+// Tightening this to ~0.1% is the acceptance test for the exact sphere path — Oblikovati#2036.
+const ballStudBand = 0.02
+
+// ballStudVolume is the EXACT volume of the ball stud: a sphere of diameter ballMM centred at the
+// origin, unioned with a coaxial cylinder of diameter shankMM running from the centre out to lenMM.
+//
+//	V = V(sphere) + V(cylinder ∖ sphere)
+//	V(cylinder ∖ sphere) = ∫₀^rS 2πr·(L − √(rB²−r²)) dr
+//	                     = 2π·( L·rS²/2 − (rB³ − (rB²−rS²)^{3/2})/3 )
+//
+// The shank's free length is measured PER RADIUS: at radius r the sphere surface sits at
+// y = √(rB²−r²), which runs from rB on the axis down to √(rB²−rS²) at the wall. Treating the shank
+// as a full cylinder above the wall's emergence plane y = √(rB²−rS²) — the closed form this test
+// asserted against until now — double-counts the annular wedge between that plane and the sphere,
+// overstating the ball stud by 1.8% (0.834616 against the true 0.819956 at Ø10/Ø6/15) and by 14%
+// on a thick shank. That overstatement, not the kernel, is what pushed this test past its band.
+//
+// Example: ballStudVolume(10, 6, 15) == 0.819956 cm³.
+func ballStudVolume(ballMM, shankMM, lenMM float64) float64 {
+	rB, rS, L := ballMM/20, shankMM/20, lenMM/10 // mm -> cm (diameters halved)
+	sphere := 4.0 / 3.0 * math.Pi * rB * rB * rB
+	freeShank := 2 * math.Pi * (L*rS*rS/2 - (rB*rB*rB-math.Pow(rB*rB-rS*rS, 1.5))/3)
+	return sphere + freeShank
+}
+
+// TestBallStudVolumeMatchesNumericIntegration pins the closed form against a direct numeric
+// integration of the same region, so the double-counting the analytic shortcut invited
+// cannot come back unnoticed: the shortcut and the integral disagree by 1.8%,
+// far outside this tolerance.
+func TestBallStudVolumeMatchesNumericIntegration(t *testing.T) {
+	// numeric integrates V = V(sphere) + ∫₀^rS 2πr·(L − √(rB²−r²)) dr by the midpoint rule.
+	numeric := func(ballMM, shankMM, lenMM float64) float64 {
+		rB, rS, L := ballMM/20, shankMM/20, lenMM/10
+		const n = 200000
+		free := 0.0
+		for i := 0; i < n; i++ {
+			r := rS * (float64(i) + 0.5) / n
+			free += 2 * math.Pi * r * (L - math.Sqrt(rB*rB-r*r)) * (rS / n)
+		}
+		return 4.0/3.0*math.Pi*rB*rB*rB + free
+	}
+	for _, c := range []struct{ ball, shank, length float64 }{
+		{10, 6, 15}, {14, 6, 15}, {20, 4, 30}, {8, 7.9, 12},
+	} {
+		got, want := ballStudVolume(c.ball, c.shank, c.length), numeric(c.ball, c.shank, c.length)
+		if math.Abs(got-want)/want > 1e-6 {
+			t.Errorf("ballStudVolume(%g,%g,%g) = %.8f, numeric integration = %.8f",
+				c.ball, c.shank, c.length, got, want)
+		}
 	}
 }

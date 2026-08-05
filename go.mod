@@ -12,7 +12,7 @@
 // resolved by the go.work workspace at this repo's root (no committed replace).
 module oblikovati.org/mcp-bridge
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.4.0

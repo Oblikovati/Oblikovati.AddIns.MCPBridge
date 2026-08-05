@@ -33,6 +33,10 @@ func runSquatRim(c *caller) error {
 	squatVol := func(k float64) float64 { // k = uniform scale factor over the 50/4/1.5 mm baseline
 		return math.Pi*(5*k)*(5*k)*(0.4*k) - math.Pi*(0.15*k)*(0.15*k)*(10*k)
 	}
+	// KNOWN RED since ~2026-07: this base check now fails at +1.13% because the through-all cut
+	// removes only the −Y half of the tunnel — silently, on the exact path, with an empty
+	// diagnostics array and a Validate-clean solid (Oblikovati#2038). The driver is left asserting
+	// the truth rather than relaxed to the observed value.
 	if err := c.checkVolumeTol("squatrim", squatVol(1), 0.01); err != nil {
 		return err
 	}

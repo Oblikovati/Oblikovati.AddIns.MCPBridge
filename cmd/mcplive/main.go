@@ -124,6 +124,9 @@ var parts = []part{
 	{"singlecableclip", runSingleCableClip},
 	{"squatrim", runSquatRim},
 	{"straddlinghole", runStraddlingHole},
+	{"facetdiag", runFacetDiag},
+	{"smoothwire", runSmoothWire},
+	{"microplate", runMicroPlate},
 }
 
 func main() {

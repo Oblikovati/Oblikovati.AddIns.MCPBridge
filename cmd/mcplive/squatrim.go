@@ -30,6 +30,21 @@ func runSquatRim(c *caller) error {
 		return err
 	}
 	// Tunnel ≈ π·rodR²·2·diskR; the (rodR/diskR)² chord correction is far below the tolerance.
-	want := math.Pi*5*5*0.4 - math.Pi*0.15*0.15*10
-	return c.checkVolumeTol("squatrim", want, 0.01)
+	squatVol := func(k float64) float64 { // k = uniform scale factor over the 50/4/1.5 mm baseline
+		return math.Pi*(5*k)*(5*k)*(0.4*k) - math.Pi*(0.15*k)*(0.15*k)*(10*k)
+	}
+	// KNOWN RED since ~2026-07: this base check now fails at +1.13% because the through-all cut
+	// removes only the −Y half of the tunnel — silently, on the exact path, with an empty
+	// diagnostics array and a Validate-clean solid (Oblikovati#2038). The driver is left asserting
+	// the truth rather than relaxed to the observed value.
+	if err := c.checkVolumeTol("squatrim", squatVol(1), 0.01); err != nil {
+		return err
+	}
+	// Scale the whole part 20× (a 2 m disk): the recompute re-runs the crossing-cylinder boolean at
+	// an extent where the SSI seam noise dwarfs the retired absolute stitch grid (Oblikovati#1602) —
+	// the live check that the model-relative stitch keeps the seam welded at size.
+	for _, p := range [][2]string{{"diskR", "1000 mm"}, {"diskH", "80 mm"}, {"rodR", "30 mm"}} {
+		c.json("set_parameter", map[string]any{"name": p[0], "expression": p[1]}, nil)
+	}
+	return c.checkVolumeTol("squatrim 20x (2 m)", squatVol(20), 0.01)
 }

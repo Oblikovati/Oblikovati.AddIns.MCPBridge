@@ -116,6 +116,7 @@ var parts = []part{
 	{"extrusioncentersection", runExtrusionCenterSection},
 	{"mainssocketholes", runMainsSocketHoles},
 	{"adjust", runAdjust},
+	{"paramseam", runParamSeam},
 	{"trimpot3362", runTrimpot3362},
 	{"radialprofile", runRadialProfile},
 	{"rdelectrolytic", runRdElectrolytic},
@@ -124,6 +125,11 @@ var parts = []part{
 	{"singlecableclip", runSingleCableClip},
 	{"squatrim", runSquatRim},
 	{"straddlinghole", runStraddlingHole},
+	{"facetdiag", runFacetDiag},
+	{"smoothwire", runSmoothWire},
+	{"microplate", runMicroPlate},
+	{"entityseam", runEntitySeam},
+	{"constraintseam", runConstraintSeam},
 }
 
 func main() {

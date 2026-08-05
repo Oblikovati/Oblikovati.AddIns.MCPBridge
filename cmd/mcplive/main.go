@@ -116,6 +116,7 @@ var parts = []part{
 	{"extrusioncentersection", runExtrusionCenterSection},
 	{"mainssocketholes", runMainsSocketHoles},
 	{"adjust", runAdjust},
+	{"paramseam", runParamSeam},
 	{"trimpot3362", runTrimpot3362},
 	{"radialprofile", runRadialProfile},
 	{"rdelectrolytic", runRdElectrolytic},

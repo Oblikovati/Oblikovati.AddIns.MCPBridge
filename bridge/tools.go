@@ -35,9 +35,13 @@ type (
 // truth) — see internal/mcpgen and tools_generated.go. There are no hand-written tool
 // registrations; regenerate with `go generate ./...`. (MCP resources, which are not
 // method-backed tools, are registered separately from the server; see resources.go.)
+//
+// set_panel_value was ALSO hand-registered here, in tools_panel.go, alongside the identical
+// registration mcpgen emits from the same annotation. The SDK keeps one, so the server counted
+// 607 registrations to serve 606 — and the activation line an operator reads to tell two builds
+// apart understated the surface. The hand-written copy is gone; the generated one stands.
 func (s *Server) registerTools() {
 	s.registerGeneratedTools()
-	s.registerPanelTools() // hand-registered; see tools_panel.go
 }
 
 // addSummarizedIn is [addSummarized] for a tool that takes typed input In: it forwards In to
@@ -78,6 +82,7 @@ func addForward[In any](s *Server, name, desc, method string) {
 // the same tool with a permissive free-form-object input that still forwards to the
 // host method, so every annotated method stays callable rather than crashing startup.
 func (s *Server) addToolSafe(name, desc, method string, build func()) {
+	s.tools++
 	defer func() {
 		if recover() != nil {
 			mcp.AddTool(s.mcp, &mcp.Tool{Name: name, Description: desc + " (input: free-form JSON object)"},
@@ -129,6 +134,7 @@ func clipJSON(b []byte) string {
 // returning the full reply as structured content. Used for list/inspect tools whose JSON
 // is noisy (materials, appearances, themes) so a model reads a digest, not a wall of JSON.
 func addSummarized[Out any](s *Server, name, desc, method string, summarize func(Out) string) {
+	s.tools++
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: name, Description: desc},
 		func(_ context.Context, _ *mcp.CallToolRequest, _ noArgs) (*mcp.CallToolResult, any, error) {
 			resp, err := s.caller.Call(method, nil)

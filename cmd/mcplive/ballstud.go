@@ -7,22 +7,24 @@ import (
 	"math"
 )
 
-// runBallStud is the live gate for Oblikovati#2036: a rod COAXIAL with a ball meets it in a circle,
-// the one sphere∩cylinder configuration with a closed-form answer (OCCT solves the same pair in
-// IntAna_QuadQuadGeo), so every boolean in the family must come back as THREE analytic faces — a
-// spherical cap, a cylindrical band and a planar disc — instead of the ~500-facet inscribed polyhedron
-// the CSG fallback used to ship.
+// runBallStud is the live gate for Oblikovati#2036 and #2061: a rod COAXIAL with a ball meets it in a
+// circle, the one sphere∩cylinder configuration with a closed-form answer (OCCT solves the same pair in
+// IntAna_QuadQuadGeo), so every boolean in the family must come back as a handful of ANALYTIC faces
+// instead of the ~500-facet inscribed polyhedron the CSG fallback used to ship.
 //
 // The check that actually bites is the FACE CENSUS, not the volume. A faceted union is still a valid
 // solid of roughly the right size (its error was 1.3%), so a volume band alone can be talked into
 // passing; "one sphere + one cylinder + one plane" cannot. The volume is then held to 0.1%, which only
 // an exact B-rep reaches.
 //
-// All four results in the family are driven. Which body is the TARGET is the modelling order — a
-// feature's own body is always the tool — so the socket is built ball-first and the rest shank-first.
+// All eight results in the family are driven — the four where the shank ENDS inside the ball and the
+// four where it passes right THROUGH (Oblikovati#2061), whose ball face is a spherical BELT rather than
+// a cap. Which body is the TARGET is the modelling order — a feature's own body is always the tool — so
+// the socket and the bead are built ball-first and the rest shank-first.
 func runBallStud(c *caller) error {
 	for _, run := range []func(*caller) error{
 		ballStudUnion, ballStudSocket, ballStudStub, ballStudPlug,
+		ballAxleUnion, ballAxleBead, ballAxleStubs, ballAxleCore,
 	} {
 		if err := run(c); err != nil {
 			return err
@@ -35,8 +37,13 @@ const (
 	ballStudBallD = 1.0  // cm — the Ø10 head
 	ballStudRodD  = 0.6  // cm — the Ø6 shank
 	ballStudLen   = 1.5  // cm, from the ball centre out
+	ballAxleLen   = 2.5  // cm, the THROUGH rod's full length, centred on the ball
 	ballStudTol   = 1e-3 // volume band: tessellation only, once the B-rep is exact
 )
+
+// ballStudFaces is the census every ONE-SEAM result carries: the ball's surviving cap, the shank's wall
+// and one planar disc.
+var ballStudFaces = map[string]int{"sphere": 1, "cylinder": 1, "plane": 1}
 
 // ballStudPlugVolume is the material the two solids share: the rod up to the seam plane at
 // √(R²−r²) — OCCT's circle offset — plus the spherical cap the ball raises above it.
@@ -57,6 +64,20 @@ func ballStudRodVolume() float64 {
 	return math.Pi * rr * rr * ballStudLen
 }
 
+func ballAxleVolume() float64 {
+	rr := ballStudRodD / 2
+	return math.Pi * rr * rr * ballAxleLen
+}
+
+// ballAxleCoreVolume is what a THROUGH rod shares with the ball: the rod between the two seam planes,
+// domed by a spherical cap at each end.
+func ballAxleCoreVolume() float64 {
+	rb, rr := ballStudBallD/2, ballStudRodD/2
+	d := math.Sqrt(rb*rb - rr*rr)
+	dome := math.Pi * (rb - d) * (rb - d) * (rb - (rb-d)/3)
+	return math.Pi*rr*rr*(2*d) + 2*dome
+}
+
 // ballStudUnion is the stud itself. It also resizes the head, because a parametric rebuild must not
 // quietly drop back to the fallback.
 func ballStudUnion(c *caller) error {
@@ -70,11 +91,11 @@ func ballStudUnion(c *caller) error {
 	union := func(ballD float64) float64 {
 		return ballStudBallVolume(ballD) + ballStudRodVolume() - ballStudPlugVolume(ballD, ballStudRodD)
 	}
-	if err := c.checkBallStud("ball ∪ rod (stud)", union(ballStudBallD)); err != nil {
+	if err := c.checkBallStud("ball ∪ rod (stud)", union(ballStudBallD), ballStudFaces); err != nil {
 		return err
 	}
 	c.json("set_parameter", map[string]any{"name": "ball_d", "expression": "14 mm"}, nil)
-	return c.checkBallStud("ball ∪ rod (Ø14 head)", union(1.4))
+	return c.checkBallStud("ball ∪ rod (Ø14 head)", union(1.4), ballStudFaces)
 }
 
 // ballStudSocket is ball − rod: a blind spherical bore with a flat bottom. The ball must be modelled
@@ -88,7 +109,7 @@ func ballStudSocket(c *caller) error {
 		return err
 	}
 	want := ballStudBallVolume(ballStudBallD) - ballStudPlugVolume(ballStudBallD, ballStudRodD)
-	return c.checkBallStud("ball − rod (socket)", want)
+	return c.checkBallStud("ball − rod (socket)", want, ballStudFaces)
 }
 
 // ballStudStub is rod − ball: the free shank with the ball's own surface hollowed into its base.
@@ -101,7 +122,7 @@ func ballStudStub(c *caller) error {
 		return err
 	}
 	return c.checkBallStud("rod − ball (dimpled stub)",
-		ballStudRodVolume()-ballStudPlugVolume(ballStudBallD, ballStudRodD))
+		ballStudRodVolume()-ballStudPlugVolume(ballStudBallD, ballStudRodD), ballStudFaces)
 }
 
 // ballStudPlug is ball ∩ rod: the buried length of the shank, domed by the ball.
@@ -113,14 +134,71 @@ func ballStudPlug(c *caller) error {
 	if err := ballStudBall(c, 1, "intersect"); err != nil {
 		return err
 	}
-	return c.checkBallStud("ball ∩ rod (plug)", ballStudPlugVolume(ballStudBallD, ballStudRodD))
+	return c.checkBallStud("ball ∩ rod (plug)", ballStudPlugVolume(ballStudBallD, ballStudRodD), ballStudFaces)
+}
+
+// ballAxleUnion is a ball on a through axle: the ball's BELT between the two seams, plus a stub and a
+// tip at each end.
+func ballAxleUnion(c *caller) error {
+	ballStudDoc(c, "axle-union")
+	if err := ballAxleShank(c, 0, "new"); err != nil {
+		return err
+	}
+	if err := ballStudBall(c, 1, "join"); err != nil {
+		return err
+	}
+	return c.checkBallStud("ball ∪ axle", ballStudBallVolume(ballStudBallD)+ballAxleVolume()-ballAxleCoreVolume(),
+		map[string]int{"sphere": 1, "cylinder": 2, "plane": 2})
+}
+
+// ballAxleBead is ball − axle: a bead, the ball's belt plus one open bore. It is the sharpest shape in
+// the family — a genus-1 solid of exactly TWO faces, and no planar disc at all, because the axle's own
+// caps are both outside the ball.
+func ballAxleBead(c *caller) error {
+	ballStudDoc(c, "axle-bead")
+	if err := ballStudBall(c, 0, "new"); err != nil {
+		return err
+	}
+	if err := ballAxleShank(c, 1, "cut"); err != nil {
+		return err
+	}
+	return c.checkBallStud("ball − axle (bead)", ballStudBallVolume(ballStudBallD)-ballAxleCoreVolume(),
+		map[string]int{"sphere": 1, "cylinder": 1})
+}
+
+// ballAxleStubs is axle − ball: the ball severs the axle, so the result is TWO separate stubs, each
+// dimpled by the ball's own surface.
+func ballAxleStubs(c *caller) error {
+	ballStudDoc(c, "axle-stubs")
+	if err := ballAxleShank(c, 0, "new"); err != nil {
+		return err
+	}
+	if err := ballStudBall(c, 1, "cut"); err != nil {
+		return err
+	}
+	return c.checkBallStud("axle − ball (two stubs)", ballAxleVolume()-ballAxleCoreVolume(),
+		map[string]int{"sphere": 2, "cylinder": 2, "plane": 2})
+}
+
+// ballAxleCore is ball ∩ axle: the axle's length inside the ball, domed at both ends.
+func ballAxleCore(c *caller) error {
+	ballStudDoc(c, "axle-core")
+	if err := ballAxleShank(c, 0, "new"); err != nil {
+		return err
+	}
+	if err := ballStudBall(c, 1, "intersect"); err != nil {
+		return err
+	}
+	return c.checkBallStud("ball ∩ axle (core)", ballAxleCoreVolume(),
+		map[string]int{"sphere": 2, "cylinder": 1})
 }
 
 // ballStudDoc opens a fresh part carrying the three driving parameters.
 func ballStudDoc(c *caller, name string) {
 	c.json("close_all_documents", map[string]any{"force": true}, nil)
 	c.json("create_document", map[string]any{"type": "part", "name": "ballstud-" + name}, nil)
-	for _, p := range [][2]string{{"ball_d", "10 mm"}, {"shank_d", "6 mm"}, {"shank_len", "15 mm"}} {
+	for _, p := range [][2]string{{"ball_d", "10 mm"}, {"shank_d", "6 mm"}, {"shank_len", "15 mm"},
+		{"axle_len", "25 mm"}} {
 		c.json("add_parameter", map[string]any{"name": p[0], "expression": p[1]}, nil)
 	}
 }
@@ -134,6 +212,20 @@ func ballStudShank(c *caller, sketchIndex int, op string) error {
 	}
 	return c.applyFeature("extrude", map[string]any{
 		"sketchIndex": sketchIndex, "profileIndex": 0, "distance": "shank_len", "operation": op,
+	})
+}
+
+// ballAxleShank extrudes the Ø6 axle SYMMETRICALLY about the sketch plane, so it clears the ball at
+// both ends and the two surfaces meet in two seam circles.
+func ballAxleShank(c *caller, sketchIndex int, op string) error {
+	c.json("create_sketch", map[string]any{"plane": "XZ"}, nil)
+	addConstrainedCircle(c, sketchIndex, []float64{0, 0}, "0.3 cm", "shank_d / 2")
+	if c.err != nil {
+		return c.err
+	}
+	return c.applyFeature("extrude", map[string]any{
+		"sketchIndex": sketchIndex, "profileIndex": 0, "distance": "axle_len",
+		"operation": op, "direction": "symmetric",
 	})
 }
 
@@ -176,18 +268,18 @@ func ballStudHalfDiscConstraints(c *caller, sketchIndex int, origin uint64, line
 }
 
 // checkBallStud is the pair of assertions every result in the family must pass: the closed-form volume
-// to a tessellation-only band, and the exact three-face analytic census.
-func (c *caller) checkBallStud(tag string, want float64) error {
+// to a tessellation-only band, and the exact analytic face census.
+func (c *caller) checkBallStud(tag string, want float64, faces map[string]int) error {
 	if err := c.checkVolumeTol(tag, want, ballStudTol); err != nil {
 		return err
 	}
-	return c.checkAnalyticTriple(tag)
+	return c.checkAnalyticFaces(tag, faces)
 }
 
-// checkAnalyticTriple fails unless the active part is ONE body of exactly three analytic faces — one
-// sphere, one cylinder, one plane. This is what separates the exact path from the CSG fallback: the
-// fallback's result is hundreds of "plane" facets and carries no sphere at all.
-func (c *caller) checkAnalyticTriple(tag string) error {
+// checkAnalyticFaces fails unless the active part carries exactly the expected census of analytic
+// faces. This is what separates the exact path from the CSG fallback: the fallback's result is hundreds
+// of "plane" facets and carries no sphere at all.
+func (c *caller) checkAnalyticFaces(tag string, want map[string]int) error {
 	var rk struct {
 		Bodies []struct {
 			Faces []struct {
@@ -203,14 +295,28 @@ func (c *caller) checkAnalyticTriple(tag string) error {
 		return fmt.Errorf("%s: %d bodies, want 1", tag, len(rk.Bodies))
 	}
 	kinds := map[string]int{}
+	total := 0
 	for _, f := range rk.Bodies[0].Faces {
 		kinds[f.Kind]++
+		total++
 	}
-	n := len(rk.Bodies[0].Faces)
-	if n != 3 || kinds["sphere"] != 1 || kinds["cylinder"] != 1 || kinds["plane"] != 1 {
-		return fmt.Errorf("%s: %d faces %v, want one sphere + one cylinder + one plane "+
-			"(a faceted result means the boolean fell back to triangle-soup CSG)", tag, n, kinds)
+	if !sameFaceCensus(kinds, want) {
+		return fmt.Errorf("%s: %d faces %v, want %v "+
+			"(a faceted result means the boolean fell back to triangle-soup CSG)", tag, total, kinds, want)
 	}
-	fmt.Printf("  %-24s exact: 3 analytic faces %v\n", tag, kinds)
+	fmt.Printf("  %-24s exact: %d analytic faces %v\n", tag, total, kinds)
 	return nil
+}
+
+// sameFaceCensus compares two face-kind tallies.
+func sameFaceCensus(got, want map[string]int) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for k, n := range want {
+		if got[k] != n {
+			return false
+		}
+	}
+	return true
 }

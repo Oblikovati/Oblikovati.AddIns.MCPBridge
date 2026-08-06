@@ -21,11 +21,16 @@ func runSquatRim(c *caller) error {
 	}); err != nil {
 		return err
 	}
-	// Rod tunnel: Ø3 mm through the whole rim at mid-height, normal to XZ (along Y).
+	// Rod tunnel: Ø3 mm through the whole rim at mid-height, normal to XZ (along Y). The sketch plane
+	// cuts the disk in half, so the tunnel needs BOTH sides: a through-all extent takes a direction
+	// (ExtrudeDefinition.SetThroughAllExtent) and the default kPositiveExtentDirection cuts only the
+	// side the sketch normal points to. Asking for the default and then asserting a both-directions
+	// volume is what made this driver read 1.13% high and get mis-filed as Oblikovati#2038.
 	c.json("create_sketch", map[string]any{"plane": "XZ"}, nil)
 	addConstrainedCircle(c, 1, []float64{0, 0}, "1.5 mm", "rodR")
 	if err := c.applyFeature("extrude", map[string]any{
-		"sketchIndex": 1, "profileIndex": 0, "operation": "cut", "extent": "through-all",
+		"sketchIndex": 1, "profileIndex": 0, "operation": "cut",
+		"extent": "through-all", "direction": "symmetric",
 	}); err != nil {
 		return err
 	}
@@ -33,10 +38,6 @@ func runSquatRim(c *caller) error {
 	squatVol := func(k float64) float64 { // k = uniform scale factor over the 50/4/1.5 mm baseline
 		return math.Pi*(5*k)*(5*k)*(0.4*k) - math.Pi*(0.15*k)*(0.15*k)*(10*k)
 	}
-	// KNOWN RED since ~2026-07: this base check now fails at +1.13% because the through-all cut
-	// removes only the −Y half of the tunnel — silently, on the exact path, with an empty
-	// diagnostics array and a Validate-clean solid (Oblikovati#2038). The driver is left asserting
-	// the truth rather than relaxed to the observed value.
 	if err := c.checkVolumeTol("squatrim", squatVol(1), 0.01); err != nil {
 		return err
 	}

@@ -124,6 +124,7 @@ var parts = []part{
 	{"smdtant", runSmdTant},
 	{"singlecableclip", runSingleCableClip},
 	{"squatrim", runSquatRim},
+	{"seambore", runSeamBore},
 	{"straddlinghole", runStraddlingHole},
 	{"facetdiag", runFacetDiag},
 	{"smoothwire", runSmoothWire},

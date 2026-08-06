@@ -127,6 +127,7 @@ var parts = []part{
 	{"seambore", runSeamBore},
 	{"straddlinghole", runStraddlingHole},
 	{"facetdiag", runFacetDiag},
+	{"meshdiag", runMeshDiag},
 	{"smoothwire", runSmoothWire},
 	{"microplate", runMicroPlate},
 	{"entityseam", runEntitySeam},

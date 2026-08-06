@@ -6,6 +6,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"oblikovati.org/app"
 )
 
@@ -17,9 +19,10 @@ import (
 // fixed in the boolean (kernel #871/#877/#880); a ball stud is the smallest faithful part that
 // drives it, and `feat` gates every step on one manifold/closed/oriented solid.
 //
-// What it does NOT yet prove is that the union stays EXACT: there is no analytic path for
-// sphere ∪ cylinder, so the operation degrades to triangle-soup CSG (see [ballStudBand] and
-// Oblikovati#2036). The part is still a valid solid of the right size, which is what this gates.
+// It also proves the union stays EXACT. A coaxial sphere ∪ cylinder is the one sphere∩cylinder
+// configuration with a closed-form intersection — a circle at ±√(R_s²−R_c²) along the axis, the case
+// OCCT solves analytically in IntAna_QuadQuadGeo — so the result must be THREE analytic faces, not the
+// ~500-facet inscribed polyhedron the CSG fallback shipped before Oblikovati#2036.
 //
 // Reference: NopSCADlib rod ends / ball studs (sphere head ⌀ on a shank ⌀).
 func TestNopBallStud(t *testing.T) {
@@ -64,26 +67,54 @@ func TestNopBallStud(t *testing.T) {
 	})
 
 	if got, w := partVolume(t, cs), ballStudVolume(10, 6, 15); math.Abs(got-w)/w > ballStudBand {
-		t.Errorf("ball stud volume = %.6f cm^3, want ~%.6f (%.0f%% band)", got, w, 100*ballStudBand)
+		t.Errorf("ball stud volume = %.6f cm^3, want ~%.6f (%.1f%% band)", got, w, 100*ballStudBand)
 	}
+	assertBallStudIsAnalytic(t, cs)
 
-	// Parametric resize: grow the head and confirm the union rebuilds and the volume tracks.
+	// Parametric resize: grow the head and confirm the union rebuilds, stays analytic, and tracks.
 	callJSON(t, cs, "set_parameter", map[string]any{"name": "ball_d", "expression": "14 mm"}, nil)
 	b.mustValid("resized")
 	if got, w := partVolume(t, cs), ballStudVolume(14, 6, 15); math.Abs(got-w)/w > ballStudBand {
 		t.Errorf("resized ball stud volume = %.6f cm^3, want ~%.6f", got, w)
 	}
+	assertBallStudIsAnalytic(t, cs)
 }
 
-// ballStudBand is how far the measured volume may sit below the exact value. The sphere ∪ cylinder
-// union has NO exact analytic path in the curved boolean (kernel/ops curvedExactPaths covers ruled
-// operands — cylinders and cones — and a sphere is not ruled), so the operation falls back to
-// triangle-soup CSG and ships an INSCRIBED polyhedron of ~500 facets whose volume is ~1.34% low.
-// The band is sized to that fallback, not to tessellation: each operand measured on its own is
-// exact to 0.03%, and the union's error does NOT shrink with tessellation quality (it is flat from
-// a 4° to a 0.1° angular tolerance) because the deficit is in the B-rep, not in the mesh.
-// Tightening this to ~0.1% is the acceptance test for the exact sphere path — Oblikovati#2036.
-const ballStudBand = 0.02
+// assertBallStudIsAnalytic reads the part's topology over the wire and fails unless the union is the
+// exact three-face B-rep: the ball's remaining spherical zone, the shank's cylindrical wall, and its
+// end cap. This is the half of Oblikovati#2036 the volume band cannot see on its own — a CSG fallback
+// with a lucky volume would still show up here as hundreds of "plane" faces and no sphere.
+func assertBallStudIsAnalytic(t *testing.T, cs *mcp.ClientSession) {
+	t.Helper()
+	var rk struct {
+		Bodies []struct {
+			Faces []struct {
+				Kind string `json:"kind"`
+			} `json:"faces"`
+		} `json:"bodies"`
+	}
+	callJSON(t, cs, "get_reference_keys", nil, &rk)
+	if len(rk.Bodies) != 1 {
+		t.Fatalf("ball stud is %d bodies, want 1", len(rk.Bodies))
+	}
+	kinds := map[string]int{}
+	for _, f := range rk.Bodies[0].Faces {
+		kinds[f.Kind]++
+	}
+	if kinds["sphere"] != 1 || kinds["cylinder"] != 1 || kinds["plane"] != 1 || len(rk.Bodies[0].Faces) != 3 {
+		t.Errorf("ball stud has %d faces %v, want one sphere + one cylinder + one plane — "+
+			"a faceted result means the union fell back to triangle-soup CSG",
+			len(rk.Bodies[0].Faces), kinds)
+	}
+}
+
+// ballStudBand is how far the measured volume may sit below the exact value. It is now a pure
+// TESSELLATION budget: the B-rep is exact (a coaxial sphere ∪ cylinder takes the closed-form circle
+// path, kernel/brep curved_coaxial_sphere_rod.go), so all that remains is the inscribed-facet deficit
+// of the spherical zone at the mass-properties quality. Before Oblikovati#2036 this had to be 2% to
+// accommodate a CSG fallback whose ~1.34% error did NOT shrink with tessellation quality — flat from a
+// 4° to a 0.1° angular tolerance — because the deficit was in the B-rep, not in the mesh.
+const ballStudBand = 0.001
 
 // ballStudVolume is the EXACT volume of the ball stud: a sphere of diameter ballMM centred at the
 // origin, unioned with a coaxial cylinder of diameter shankMM running from the centre out to lenMM.

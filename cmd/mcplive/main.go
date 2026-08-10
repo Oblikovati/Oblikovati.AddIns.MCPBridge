@@ -133,6 +133,11 @@ var parts = []part{
 	{"microplate", runMicroPlate},
 	{"entityseam", runEntitySeam},
 	{"constraintseam", runConstraintSeam},
+	{"smflange", runSheetMetalFlange},
+	{"smmiter", runSheetMetalMiter},
+	{"smhem", runSheetMetalHems},
+	{"smflat", runSheetMetalFlat},
+	{"smprobe", runSheetMetalProbe},
 }
 
 func main() {

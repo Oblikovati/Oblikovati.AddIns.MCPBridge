@@ -179,9 +179,9 @@ func runSheetMetalMiter(c *caller) error {
 	if err != nil {
 		return err
 	}
-	// 0.5 mm is RED on purpose: Oblikovati#2075 — auto-miter leaves the miter face and the
-	// neighbouring wall's outer face interpenetrating at the bend root for a narrow gap. Do NOT
-	// widen this to a passing gap; the assertion is what blocks the #1961 PR until it is fixed.
+	// 0.5 mm is the gap that found Oblikovati#2075: the miter-gap cut face abuts the wall it cuts,
+	// and the self-intersection check called that contact an interpenetration. Keep this exact
+	// value — a wider gap does not reproduce it, which is how the pure-Go fixtures missed it.
 	narrow, err := smCornerVolume(c, "smmiter-narrow", true, "0.5 mm")
 	if err != nil {
 		return err

@@ -65,25 +65,6 @@ func firstPartID(txt string) uint64 {
 	return 0
 }
 
-// firstPartName returns the name of the first part document in a list_documents payload.
-func firstPartName(txt string) string {
-	var r struct {
-		Documents []struct {
-			Name string `json:"name"`
-			Type string `json:"type"`
-		} `json:"documents"`
-	}
-	if json.Unmarshal([]byte(txt), &r) != nil {
-		return ""
-	}
-	for _, doc := range r.Documents {
-		if doc.Type == "part" {
-			return doc.Name
-		}
-	}
-	return ""
-}
-
 // docIDByName returns the id of the open document with the given name.
 func docIDByName(txt, name string) uint64 {
 	var r struct {

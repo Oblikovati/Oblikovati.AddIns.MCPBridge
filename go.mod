@@ -17,7 +17,7 @@ go 1.26.0
 require (
 	github.com/modelcontextprotocol/go-sdk v1.4.0
 	oblikovati.org v0.0.0
-	oblikovati.org/api v0.145.1
+	oblikovati.org/api v0.146.0
 )
 
 require (

@@ -248,6 +248,127 @@ func smLoftedFaceCount(c *caller, name, output, tol string) (int, error) {
 	return smFaceCount(c)
 }
 
+// runSheetMetalCornerSeamOverlap drives #2085 live: on a two-flange open corner, the no-overlap seam
+// butts the walls into a watertight fill, and the overlap seam adds a proud lap tab on top — so its
+// solid holds MORE material than the butt. Both must be valid solids; the overlap is captured.
+func runSheetMetalCornerSeamOverlap(c *caller) error {
+	butt, err := smSeamCornerVolume(c, "smseamlap-butt", "noOverlap", 0)
+	if err != nil {
+		return err
+	}
+	over, err := smSeamCornerVolume(c, "smseamlap-over", "overlap", 80)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("  corner seam: no-overlap butt = %.6f, overlap(80%%) = %.6f cm^3 (+%.6f lap)\n",
+		butt, over, over-butt)
+	if !(over > butt) {
+		return fmt.Errorf("overlap %.6f is not proud of the no-overlap butt %.6f — the lap tab was not added", over, butt)
+	}
+	c.json("capture_viewport", map[string]any{"path": "/tmp/oblikovati-smseamlap.png"}, nil)
+	return nil
+}
+
+// smSeamCornerVolume folds two walls off adjacent edges (an OPEN corner, no auto-miter), finishes
+// the corner with a seam of the given style, and returns the resulting solid's volume.
+func smSeamCornerVolume(c *caller, name, seamType string, overlap float64) (float64, error) {
+	base, err := smSheet(c, name)
+	if err != nil {
+		return 0, err
+	}
+	edgeX, edgeY, err := smTopEdges(c)
+	if err != nil {
+		return 0, err
+	}
+	if err := c.applyFeature("sheetMetalFlange", map[string]any{"edge": edgeX, "height": "10 mm", "radius": "2 mm"}); err != nil {
+		return 0, err
+	}
+	if err := c.applyFeature("sheetMetalFlange", map[string]any{"edge": edgeY, "height": "10 mm", "radius": "2 mm"}); err != nil {
+		return 0, err
+	}
+	edge, err := smCornerVerticalEdge(c, smThickness(base))
+	if err != nil {
+		return 0, err
+	}
+	args := map[string]any{"edges": []string{edge}, "gap": "1 mm", "type": seamType}
+	if overlap > 0 {
+		args["overlap"] = overlap
+	}
+	if err := c.applyFeature("sheetMetalCornerSeam", args); err != nil {
+		return 0, err
+	}
+	v := smVolume(c)
+	if c.err != nil {
+		return 0, c.err
+	}
+	return v, smValidSolid(c, name)
+}
+
+// runSheetMetalLoftedConverge drives #2086 live: a converged lofted flange pinches the cornered
+// profile's corner to a point, so it holds LESS material than the un-converged reference, and a
+// rounded end bend builds a valid solid. The converged wall is captured.
+func runSheetMetalLoftedConverge(c *caller) error {
+	ref, err := smLoftedVolume(c, "smloftconv-ref", false, "")
+	if err != nil {
+		return err
+	}
+	conv, err := smLoftedVolume(c, "smloftconv-on", true, "")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("  lofted flange: reference = %.6f, converged = %.6f cm^3 (-%.6f corner)\n",
+		ref, conv, ref-conv)
+	if !(conv < ref) {
+		return fmt.Errorf("converge %.6f did not remove corner material vs the reference %.6f", conv, ref)
+	}
+	if _, err := smLoftedVolume(c, "smloftconv-radius", false, "3 mm"); err != nil {
+		return fmt.Errorf("a rounded end bend failed: %w", err)
+	}
+	c.json("capture_viewport", map[string]any{"path": "/tmp/oblikovati-smloftconv.png"}, nil)
+	return nil
+}
+
+// smLoftedVolume builds a lofted flange between two offset L-profiles, optionally converged and/or
+// with an end-bend radius, and returns the wall's volume after checking it is a valid solid.
+func smLoftedVolume(c *caller, name string, converge bool, radius string) (float64, error) {
+	var doc struct {
+		ID uint64 `json:"id"`
+	}
+	c.json("create_document", map[string]any{"type": "part", "name": name, "subType": "org.oblikovati.part.sheetMetal"}, &doc)
+	c.json("activate_document", map[string]any{"id": doc.ID}, nil)
+	c.json("create_sketch", map[string]any{"plane": "XY"}, nil)
+	c.json("add_sketch_entity", map[string]any{"sketchIndex": 0, "kind": "polyline", "closed": false,
+		"points": [][]float64{{0, 0}, {1, 0}, {1, 1}}}, nil)
+	var wp struct {
+		Index int `json:"index"`
+	}
+	c.json("create_work_plane", map[string]any{"kind": "plane-offset", "refs": []string{"origin/plane/xy"}, "offset": "30 mm"}, &wp)
+	var sk struct {
+		SketchIndex int `json:"sketchIndex"`
+	}
+	c.json("create_sketch", map[string]any{"workPlaneIndex": wp.Index}, &sk)
+	c.json("add_sketch_entity", map[string]any{"sketchIndex": sk.SketchIndex, "kind": "polyline", "closed": false,
+		"points": [][]float64{{1, 1}, {3, 1}, {3, 3}}}, nil)
+	args := map[string]any{"profileA": 0, "profileB": sk.SketchIndex, "outputType": "dieFormed"}
+	if converge {
+		args["converge"] = true
+	}
+	if radius != "" {
+		args["radius"] = radius
+	}
+	if err := c.applyFeature("sheetMetalLoftedFlange", args); err != nil {
+		return 0, err
+	}
+	if err := smValidSolid(c, name); err != nil {
+		return 0, err
+	}
+	v := smVolume(c)
+	if c.err != nil {
+		return 0, c.err
+	}
+	return v, nil
+}
+
 // smFaceCount reports how many faces the active part's first body carries.
 func smFaceCount(c *caller) (int, error) {
 	var rk struct {

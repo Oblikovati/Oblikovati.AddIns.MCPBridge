@@ -143,6 +143,8 @@ var parts = []part{
 	{"smcorner", runSheetMetalCornerVariants},
 	{"smseam", runSheetMetalCornerSeam},
 	{"smloft", runSheetMetalLoftedFlange},
+	{"smseamlap", runSheetMetalCornerSeamOverlap},
+	{"smloftconv", runSheetMetalLoftedConverge},
 }
 
 func main() {

@@ -271,8 +271,12 @@ func recordCompositeVars(vars map[string]ast.Expr, as *ast.AssignStmt) {
 // method-constant name and the request argument; ok is false for any other call.
 // The two shapes (Oblikovati/Oblikovati#1650 audit G2 added the generic one):
 //
-//	c.call(wire.MethodX, ARG, &r)          — the untyped Client.call method
+//	c.call(wire.MethodX, ARG, &r)          — the untyped Client.call/invoke method
 //	call[Resp](c, wire.MethodX, ARG)       — the generic package-level helper
+//
+// Oblikovati.API#286 (go1.27 generic-methods migration) renamed the void-result
+// dispatch method from call to invoke, keeping the value-returning generic call[T]
+// helper's name unchanged — both selector names are matched here for that reason.
 func wireCall(call *ast.CallExpr) (method string, arg ast.Expr, ok bool) {
 	if m, a, ok := untypedWireCall(call); ok {
 		return m, a, true
@@ -280,10 +284,11 @@ func wireCall(call *ast.CallExpr) (method string, arg ast.Expr, ok bool) {
 	return genericWireCall(call)
 }
 
-// untypedWireCall matches c.call(wire.MethodX, ARG, …) — the selector form.
+// untypedWireCall matches c.call(wire.MethodX, ARG, …) or c.invoke(wire.MethodX, ARG, …)
+// — the selector form.
 func untypedWireCall(call *ast.CallExpr) (method string, arg ast.Expr, ok bool) {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "call" || len(call.Args) < 2 {
+	if !ok || (sel.Sel.Name != "call" && sel.Sel.Name != "invoke") || len(call.Args) < 2 {
 		return "", nil, false
 	}
 	return wireMethodConst(call.Args[0], call.Args[1])

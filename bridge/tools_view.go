@@ -29,3 +29,17 @@ type clickViewportArg struct {
 	Ctrl   bool      `json:"ctrl,omitempty"`
 	Alt    bool      `json:"alt,omitempty"`
 }
+
+// Local tool input for viewport_scroll (mcp:input override). wire.ScrollViewportArgs is
+// already flat, but mirroring it here keeps this tool's schema on the same explicit,
+// bridge-owned override pattern as the other viewport input tools (clickViewportArg,
+// setCameraArg) rather than leaving it as the odd one out relying on the generic wire type.
+type scrollViewportArg struct {
+	DX    float64 `json:"dx,omitempty"`
+	DY    float64 `json:"dy,omitempty"`
+	X     float64 `json:"x,omitempty"`
+	Y     float64 `json:"y,omitempty"`
+	Shift bool    `json:"shift,omitempty"`
+	Ctrl  bool    `json:"ctrl,omitempty"`
+	Alt   bool    `json:"alt,omitempty"`
+}

@@ -31,3 +31,6 @@ go.work.sum
 
 # Built CLI driver binaries (go build ./cmd/mcp... drops them at the repo root).
 /mcp*
+
+# Local git worktrees used for isolated feature/fix branches.
+.worktrees/

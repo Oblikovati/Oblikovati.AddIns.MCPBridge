@@ -3,8 +3,8 @@
 #
 # Its own Go toolchain: the add-in talks to the host over the C ABI, not Go, so its
 # version is independent of the host. It tracks the head's (see go.mod) because the
-# bridge<->host integration tests compile the app, which now requires 1.26.
-export GOTOOLCHAIN := go1.26.0
+# bridge<->host integration tests compile the app, which now requires 1.27.
+export GOTOOLCHAIN := go1.27.0
 export CGO_ENABLED := 1
 
 OS := $(shell go env GOOS)

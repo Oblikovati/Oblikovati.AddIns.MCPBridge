@@ -55,6 +55,7 @@ var parts = []part{
 	{"pcbmount", runPcbMount},
 	{"faceplate", runFaceplate},
 	{"counterbore", runCounterbore},
+	{"mixedboolean", runMixedBoolean},
 	{"boltflange", runBoltFlange},
 	{"shaftcoupling", runShaftCoupling},
 	{"fanframe", runFanFrame},

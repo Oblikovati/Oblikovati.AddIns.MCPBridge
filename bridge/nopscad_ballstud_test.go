@@ -187,6 +187,59 @@ func beadVolume(ballMM, boreMM float64) float64 {
 	return 4.0/3.0*math.Pi*rB*rB*rB - (math.Pi*rC*rC*(2*d) + 2*cap)
 }
 
+// TestNopBallShoulderStud is the third extent: the shank stops PART WAY through the ball's shoulder,
+// past the seam plane at 4 mm but short of the pole at 5 mm. The ball's own surface crosses the shank's
+// end disc there, so the union keeps TWO spherical pieces — the ball below the seam and the tip beyond
+// the shank's end — and the end cap survives as an ANNULUS rather than a whole disc.
+//
+// It is the one contact in this family that is not just the seam circle: a plane∩sphere circle joins it,
+// which is why the extent came last.
+func TestNopBallShoulderStud(t *testing.T) {
+	s := app.NewSession()
+	if err := app.RegisterStandardCommands(s); err != nil {
+		t.Fatalf("commands: %v", err)
+	}
+	cs := e2eClient(t, s)
+	b := &partBuilder{t: t, s: s, cs: cs}
+	newPartDoc(t, cs, "ball_shoulder.obk")
+
+	b.param("ball_d", "10 mm")
+	b.param("shank_d", "6 mm")
+	b.param("shank_len", "4.5 mm")
+
+	skShank := addSketchOnPlane(t, cs, "XZ")
+	b.dim(skShank, "diameter", "shank_d", b.circle(skShank, 0, 0, "0.3 cm")[0])
+	b.solved(skShank)
+	b.feat("1-shank", "extrude", map[string]any{"sketchIndex": skShank, "profileIndex": 0,
+		"distance": "shank_len", "operation": "new"})
+
+	skBall := addSketchOnPlane(t, cs, "XY")
+	halfDiscProfile(t, cs, b, skBall)
+	b.feat("2-ball", "revolve", map[string]any{
+		"sketchIndex": skBall, "profileIndex": 0, "axisRef": "origin/axis/y", "angle": "360 deg", "operation": "join",
+	})
+
+	if got, w := partVolume(t, cs), shoulderStudVolume(10, 6, 4.5); math.Abs(got-w)/w > ballStudBand {
+		t.Errorf("shoulder stud volume = %.6f cm^3, want ~%.6f (%.1f%% band)", got, w, 100*ballStudBand)
+	}
+	assertFaceCensus(t, cs, "shoulder stud", map[string]int{"sphere": 2, "cylinder": 1, "plane": 1})
+}
+
+// shoulderStudVolume is the EXACT volume of a ball unioned with a coaxial shank that stops at station
+// `stopMM` inside the ball's shoulder. Inside the ball's own circle at that station the shank's cap
+// limits the shared material; outside it the ball's surface does:
+//
+//	V = V(ball) + V(shank) − ( π·ρ²·stop + (2π/3)·((rB²−ρ²)^{3/2} − (rB²−rS²)^{3/2}) ),  ρ = √(rB²−stop²)
+//
+// Example: shoulderStudVolume(10, 6, 4.5) == 0.526871 cm³.
+func shoulderStudVolume(ballMM, shankMM, stopMM float64) float64 {
+	rB, rS, stop := ballMM/20, shankMM/20, stopMM/10 // mm -> cm (diameters halved)
+	rho2 := rB*rB - stop*stop
+	shared := math.Pi*rho2*stop +
+		(2*math.Pi/3)*(math.Pow(rB*rB-rho2, 1.5)-math.Pow(rB*rB-rS*rS, 1.5))
+	return 4.0/3.0*math.Pi*rB*rB*rB + math.Pi*rS*rS*stop - shared
+}
+
 // ballStudBand is how far the measured volume may sit below the exact value. It is now a pure
 // TESSELLATION budget: the B-rep is exact (a coaxial sphere ∪ cylinder takes the closed-form circle
 // path, kernel/brep curved_coaxial_sphere_rod.go), so all that remains is the inscribed-facet deficit

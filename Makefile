@@ -31,8 +31,7 @@ HDR := include/oblikovati_addin.h
 
 .PHONY: build install test clean sync-header
 
-sync-header: $(HDR) ## Vendor the C ABI header from the oblikovati.org/api module
-$(HDR):
+sync-header: ## Vendor the C ABI header from the oblikovati.org/api module
 	@mkdir -p include
 	@api_dir=$$(go list -m -f '{{.Dir}}' oblikovati.org/api) && \
 		cp "$$api_dir/include/oblikovati_addin.h" "$(HDR)" && \

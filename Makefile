@@ -23,13 +23,14 @@ OUT ?= build
 # `replace oblikovati.org => ../Oblikovati` in go.work; two `..` escaped the workspace
 # and silently installed outside it.
 ADDINS_DIR ?= ../Oblikovati/head/addins
+RUST_HOST ?= ../oblikovati-rust/target/debug/oblikovati$(if $(filter windows,$(OS)),.exe)
 
 # The C ABI header is owned by the public oblikovati.org/api module (its source of truth);
 # we vendor it into ./include (git-ignored) so cgo can -I it. Resolving the module dir
 # with `go list -m` works both under go.work (local dev) and the CI -replace.
 HDR := include/oblikovati_addin.h
 
-.PHONY: build install test clean sync-header
+.PHONY: build install test test-rust clean sync-header
 
 sync-header: ## Vendor the C ABI header from the oblikovati.org/api module
 	@mkdir -p include
@@ -49,6 +50,10 @@ install: build ## Build then copy the library + manifest into $(ADDINS_DIR)
 
 test: sync-header ## Run the add-in tests (pure-Go bridge + full-stack E2E)
 	go test ./...
+
+test-rust: build ## Run MCP integration tests with the built Rust desktop
+	OBK_RUST_MCP_HOST="$(abspath $(RUST_HOST))" OBK_RUST_MCP_LIBRARY="$(abspath $(OUT)/$(LIB))" \
+		go test -count=1 -v ./integration/rusthost
 
 clean: ## Remove build outputs and the vendored header
 	rm -rf $(OUT) include

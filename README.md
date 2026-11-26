@@ -31,6 +31,18 @@ Smoke-test a running bridge (lists tools, reads the model tree):
 go run ./cmd/mcpcheck            # or: go run ./cmd/mcpcheck --url http://host:port/mcp
 ```
 
+## MCP integration tests with the Rust desktop
+
+```sh
+cargo build --manifest-path ../oblikovati-rust/Cargo.toml --locked -p oblikovati-head --bin oblikovati
+make test-rust
+```
+
+The test starts the Rust desktop with a temporary add-in directory and an
+OS-assigned loopback port. It exercises the compiled bridge over MCP HTTP.
+Set `RUST_HOST` to use a different desktop binary. On Linux without a graphical
+session, run `xvfb-run -a make test-rust` with a Vulkan driver available.
+
 ## MCP tools
 
 Each tool forwards a typed input to a host method and returns the method's JSON

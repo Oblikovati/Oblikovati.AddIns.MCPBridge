@@ -48,6 +48,11 @@ session, run `xvfb-run -a make test-rust` with a Vulkan driver available.
 Each tool forwards a typed input to a host method and returns the method's JSON
 result as text content. A host error becomes a tool error.
 
+Tools that accept an API Variant, including `documents_set_property` and
+`set_attribute`, take a tagged value such as
+`{"type":"string","value":"PN-42"}`. The schema describes each value type.
+Integer payloads retain their full signed 64-bit precision during forwarding.
+
 | Tool | Input | Host method |
 |------|-------|-------------|
 | `list_commands` | — | `commands.list` |

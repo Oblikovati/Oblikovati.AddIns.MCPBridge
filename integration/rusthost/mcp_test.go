@@ -15,6 +15,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"oblikovati.org/api"
+	"oblikovati.org/api/types"
 	"oblikovati.org/api/wire"
 )
 
@@ -52,6 +53,43 @@ func TestRustMCPServer(t *testing.T) {
 		assertSolidVolume(t, ctx, client, 72_000)
 		verifyViewportCapture(t, ctx, client)
 	})
+
+	t.Run("typed model property in drawing", func(t *testing.T) {
+		verifyTitleBlockProperty(t, ctx, client)
+	})
+}
+
+func verifyTitleBlockProperty(t *testing.T, ctx context.Context, client *mcp.ClientSession) {
+	t.Helper()
+	part := createPart(t, ctx, client, "rust-mcp-title-source.opd")
+	path := filepath.Join(t.TempDir(), "title-source.opd")
+	callTool(t, ctx, client, "documents_save_as", wire.SaveDocumentAsArgs{
+		Document: part.ID, NewFullDocumentName: path,
+	})
+	callTool(t, ctx, client, "create_document", wire.CreateDocumentArgs{Type: "drawing", Name: "Title block"})
+	callTool(t, ctx, client, "drawing_set_model_reference", wire.SetModelReferenceArgs{
+		FullDocumentName: path,
+	})
+	for _, number := range []string{"PN-42", "PN-43"} {
+		callTool(t, ctx, client, "documents_set_property", wire.SetPropertyArgs{
+			Document: part.ID, Set: "Design Tracking Properties", Name: "Part Number",
+			Value: types.StringVariant(number),
+		})
+		var block wire.TitleBlockFieldsResult
+		callJSON(t, ctx, client, "drawing_title_block_fields", wire.TitleBlockFieldsArgs{}, &block)
+		assertPartNumber(t, block, number)
+	}
+}
+
+func assertPartNumber(t *testing.T, block wire.TitleBlockFieldsResult, want string) {
+	t.Helper()
+	for _, field := range block.Fields {
+		if field.Name == "Part Number" && field.Value == want &&
+			field.Source == "Design Tracking Properties:Part Number" {
+			return
+		}
+	}
+	t.Fatalf("title block fields = %+v, want Part Number %q from the referenced model", block.Fields, want)
 }
 
 func createPart(t *testing.T, ctx context.Context, client *mcp.ClientSession, name string) wire.DocumentInfo {

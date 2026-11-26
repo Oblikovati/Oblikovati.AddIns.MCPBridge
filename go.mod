@@ -15,6 +15,7 @@ module oblikovati.org/mcp-bridge
 go 1.27.0
 
 require (
+	github.com/google/jsonschema-go v0.4.2
 	github.com/modelcontextprotocol/go-sdk v1.4.0
 	oblikovati.org v0.0.0
 	oblikovati.org/api v0.166.0
@@ -25,7 +26,6 @@ require (
 	github.com/dnephin/pflag v1.0.7 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

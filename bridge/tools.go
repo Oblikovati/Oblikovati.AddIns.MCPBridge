@@ -69,8 +69,16 @@ func addSummarizedIn[In any, Out any](s *Server, name, desc, method string, summ
 // the given host method, returning the host's JSON result as the tool's text content.
 func addForward[In any](s *Server, name, desc, method string) {
 	s.addToolSafe(name, desc, method, func() {
-		mcp.AddTool(s.mcp, &mcp.Tool{Name: name, Description: desc},
-			func(_ context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, any, error) {
+		mcp.AddTool(s.mcp, &mcp.Tool{Name: name, Description: desc, InputSchema: toolInputSchema[In]()},
+			func(_ context.Context, req *mcp.CallToolRequest, _ json.RawMessage) (*mcp.CallToolResult, any, error) {
+				// SDK schema validation re-encodes numbers through float64. Decode the
+				// original arguments to preserve Variant integers and document IDs.
+				var in In
+				if raw := req.Params.Arguments; len(raw) != 0 {
+					if err := json.Unmarshal(raw, &in); err != nil {
+						return nil, nil, fmt.Errorf("%s: decode request: %w", method, err)
+					}
+				}
 				return s.forward(method, in)
 			})
 	})

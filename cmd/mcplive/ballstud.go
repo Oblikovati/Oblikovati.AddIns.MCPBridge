@@ -17,14 +17,17 @@ import (
 // passing; "one sphere + one cylinder + one plane" cannot. The volume is then held to 0.1%, which only
 // an exact B-rep reaches.
 //
-// All eight results in the family are driven — the four where the shank ENDS inside the ball and the
-// four where it passes right THROUGH (Oblikovati#2061), whose ball face is a spherical BELT rather than
-// a cap. Which body is the TARGET is the modelling order — a feature's own body is always the tool — so
-// the socket and the bead are built ball-first and the rest shank-first.
+// Every extent of the shank is driven: the four results where it ENDS inside the ball, the four where it
+// passes right THROUGH (whose ball face is a spherical BELT rather than a cap), and the two where it
+// stops part way through the ball's SHOULDER — the extent where a plane∩sphere circle joins the seam
+// circle, so the ball survives in two pieces and the shank's end cap survives as an ANNULUS. Which body
+// is the TARGET is the modelling order — a feature's own body is always the tool — so the socket and the
+// bead are built ball-first and the rest shank-first.
 func runBallStud(c *caller) error {
 	for _, run := range []func(*caller) error{
 		ballStudUnion, ballStudSocket, ballStudStub, ballStudPlug,
 		ballAxleUnion, ballAxleBead, ballAxleStubs, ballAxleCore,
+		ballShoulderUnion, ballShoulderCut,
 	} {
 		if err := run(c); err != nil {
 			return err
@@ -193,12 +196,75 @@ func ballAxleCore(c *caller) error {
 		map[string]int{"sphere": 2, "cylinder": 1})
 }
 
+// ballShoulderUnion is a shank that stops PART WAY through the ball's shoulder — past the seam plane at
+// 4 mm but short of the pole at 5 mm. The ball's own surface crosses the shank's end disc there, so the
+// union keeps TWO spherical pieces (the ball below the seam, and the tip beyond the shank's end) and the
+// end cap survives as an annulus.
+func ballShoulderUnion(c *caller) error {
+	ballStudDoc(c, "shoulder-union")
+	if err := ballShoulderShank(c, 0, "new"); err != nil {
+		return err
+	}
+	if err := ballStudBall(c, 1, "join"); err != nil {
+		return err
+	}
+	want := ballStudBallVolume(ballStudBallD) + ballShoulderRodVolume() - ballShoulderSharedVolume()
+	return c.checkBallStud("ball ∪ shoulder rod", want,
+		map[string]int{"sphere": 2, "cylinder": 1, "plane": 1})
+}
+
+// ballShoulderCut is the ball bored by that same shank: the bore is blind, but its flat bottom is now the
+// shank's BURIED cap and its mouth is the annular step the shoulder leaves.
+func ballShoulderCut(c *caller) error {
+	ballStudDoc(c, "shoulder-cut")
+	if err := ballStudBall(c, 0, "new"); err != nil {
+		return err
+	}
+	if err := ballShoulderShank(c, 1, "cut"); err != nil {
+		return err
+	}
+	return c.checkBallStud("ball − shoulder rod",
+		ballStudBallVolume(ballStudBallD)-ballShoulderSharedVolume(),
+		map[string]int{"sphere": 2, "cylinder": 1, "plane": 2})
+}
+
+// ballShoulderStop is where the shoulder shank ends: between the seam plane and the pole.
+const ballShoulderStop = 0.45 // cm
+
+func ballShoulderRodVolume() float64 {
+	rr := ballStudRodD / 2
+	return math.Pi * rr * rr * ballShoulderStop
+}
+
+// ballShoulderSharedVolume is what that shank shares with the ball. Inside the ball's own circle at the
+// stop station the shank's cap limits the solid; outside it the ball's surface does:
+//
+//	V = π·ρ²·stop + (2π/3)·((R²−ρ²)^{3/2} − (R²−r_c²)^{3/2}),   ρ = √(R²−stop²)
+func ballShoulderSharedVolume() float64 {
+	rb, rr := ballStudBallD/2, ballStudRodD/2
+	rho2 := rb*rb - ballShoulderStop*ballShoulderStop
+	return math.Pi*rho2*ballShoulderStop +
+		(2*math.Pi/3)*(math.Pow(rb*rb-rho2, 1.5)-math.Pow(rb*rb-rr*rr, 1.5))
+}
+
+// ballShoulderShank extrudes the Ø6 shank from the ball centre out to the shoulder stop.
+func ballShoulderShank(c *caller, sketchIndex int, op string) error {
+	c.json("create_sketch", map[string]any{"plane": "XZ"}, nil)
+	addConstrainedCircle(c, sketchIndex, []float64{0, 0}, "0.3 cm", "shank_d / 2")
+	if c.err != nil {
+		return c.err
+	}
+	return c.applyFeature("extrude", map[string]any{
+		"sketchIndex": sketchIndex, "profileIndex": 0, "distance": "shoulder_len", "operation": op,
+	})
+}
+
 // ballStudDoc opens a fresh part carrying the three driving parameters.
 func ballStudDoc(c *caller, name string) {
 	c.json("close_all_documents", map[string]any{"force": true}, nil)
 	c.json("create_document", map[string]any{"type": "part", "name": "ballstud-" + name}, nil)
 	for _, p := range [][2]string{{"ball_d", "10 mm"}, {"shank_d", "6 mm"}, {"shank_len", "15 mm"},
-		{"axle_len", "25 mm"}} {
+		{"axle_len", "25 mm"}, {"shoulder_len", "4.5 mm"}} {
 		c.json("add_parameter", map[string]any{"name": p[0], "expression": p[1]}, nil)
 	}
 }

@@ -186,6 +186,10 @@ func toolFromFunc(fset *token.FileSet, fn *ast.FuncDecl) (tool, bool) {
 	}
 	if v := directives["input"]; v != "" {
 		input = v // override: a bridge-local input type for a cleaner schema
+	} else if method == "MethodViewGetCamera" && input == "" {
+		// The no-argument Go convenience method calls the active document. The
+		// full wire request also lets an MCP caller address an open background document.
+		input = "wire.GetCameraArgs"
 	}
 	_, image := directives["image"]
 	t := tool{

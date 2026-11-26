@@ -345,7 +345,7 @@ func (s *Server) registerGeneratedTools() {
 	addSummarized[wire.ThemeView](s, "get_active_theme", "Read the active UI theme.", wire.MethodThemeActive, summarizeActiveTheme)
 	addForward[wire.AssetRefArgs](s, "get_appearance", "Get one OpenPBR Surface appearance by id.", wire.MethodAppearancesGet)
 	addForward[wire.GetAttributeArgs](s, "get_attribute", "Read a stored attribute by set and name on a document (optionally anchored to an entity by reference key).", wire.MethodAttributesGet)
-	addForward[noArgs](s, "get_camera", "Read a document's active-view camera as a look-at frame (eye, target, up, fov); document 0 = active.", wire.MethodViewGetCamera)
+	addForward[wire.GetCameraArgs](s, "get_camera", "Read a document's active-view camera as a look-at frame (eye, target, up, fov); document 0 = active.", wire.MethodViewGetCamera)
 	addForward[wire.GetStyleArgs](s, "get_color_style", "Read one color style by name; see list_color_styles.", wire.MethodStylesGet)
 	addForward[noArgs](s, "get_display_mode", "Read the viewport's current display mode (visual style: shaded, wireframe, …).", wire.MethodViewGetDisplayMode)
 	addForward[noArgs](s, "get_display_options", "Read the application display options (quality, transition time, edges, ray tracing).", wire.MethodDisplayGetOptions)

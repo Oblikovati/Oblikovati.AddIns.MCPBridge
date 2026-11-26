@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"oblikovati.org/api"
 )
 
 type tool struct {
@@ -54,10 +56,9 @@ func main() {
 	fmt.Printf("mcpgen: wrote %d tools to %s\n", len(tools), out)
 }
 
-// Go API v0.165.0 declares these methods without MCP annotations. The go-legacy
-// host lacks their routes. Keep the exceptions named so other missing annotations
-// still fail generation and future upstream annotations can take effect.
-var unannotatedLegacyMethods = []string{
+// The already-published API v0.165.0 is missing these annotations.
+// Every other API version must annotate all its wire methods.
+var unannotated165Methods = []string{
 	"MethodModelStatesGetTable",
 	"MethodModelStatesSetTable",
 	"MethodModelStatesVerifyTable",
@@ -87,8 +88,10 @@ func enforceParity(wireDir string, tools []tool) {
 	for _, m := range append(skipped, "") {
 		covered[m] = true
 	}
-	for _, m := range unannotatedLegacyMethods {
-		covered[m] = true
+	if api.Version == "0.165.0" {
+		for _, m := range unannotated165Methods {
+			covered[m] = true
+		}
 	}
 	var missing []string
 	for _, m := range wireMethodConsts(wireDir) {

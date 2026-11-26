@@ -29,8 +29,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"oblikovati.org/api"
 )
 
 type tool struct {
@@ -56,30 +54,7 @@ func main() {
 	fmt.Printf("mcpgen: wrote %d tools to %s\n", len(tools), out)
 }
 
-// The already-published API v0.165.0 is missing these annotations.
-// Every other API version must annotate all its wire methods.
-var unannotated165Methods = []string{
-	"MethodModelStatesGetTable",
-	"MethodModelStatesSetTable",
-	"MethodModelStatesVerifyTable",
-	"MethodPartDesignViewsActivate",
-	"MethodPartDesignViewsCaptureCamera",
-	"MethodPartDesignViewsCopy",
-	"MethodPartDesignViewsDelete",
-	"MethodPartDesignViewsGetCamera",
-	"MethodPartDesignViewsList",
-	"MethodPartDesignViewsRename",
-	"MethodPartDesignViewsSetBodyVisibility",
-	"MethodPartDesignViewsSetOptions",
-	"MethodSketchConstraintGlyphVisibility",
-	"MethodSketchSetAllConstraintGlyphsVisibility",
-	"MethodSketchSetBlockDefinitionColor",
-	"MethodSketchSetBlockInstanceColor",
-	"MethodSketchSetConstraintGlyphVisibility",
-}
-
-// enforceParity fails generation when a wire method has no MCP annotation or
-// explicit exception.
+// enforceParity fails generation when a wire method has no MCP annotation.
 func enforceParity(wireDir string, tools []tool) {
 	covered := map[string]bool{"": true}
 	for _, t := range tools {
@@ -87,11 +62,6 @@ func enforceParity(wireDir string, tools []tool) {
 	}
 	for _, m := range append(skipped, "") {
 		covered[m] = true
-	}
-	if api.Version == "0.165.0" {
-		for _, m := range unannotated165Methods {
-			covered[m] = true
-		}
 	}
 	var missing []string
 	for _, m := range wireMethodConsts(wireDir) {

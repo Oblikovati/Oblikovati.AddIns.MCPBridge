@@ -80,8 +80,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # darwin-amd64 is cross-built on the macos-14 (arm64) runner, so no Intel runner (#1164).
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-14, windows-latest]
+        # darwin-amd64 is cross-built on the macos-15 (arm64) runner, so no Intel runner (#1164).
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       CGO_ENABLED: "1"
@@ -138,7 +138,7 @@ jobs:
           API_TAG: ${{ needs.check.outputs.api_tag }}
         run: |
           gh release create "$TAG" dist/* \
-            -R "$GITHUB_REPOSITORY" \
+            -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "MCP bridge — API $API_TAG" \
             --notes "Auto-built oblikovati-mcp-bridge against oblikovati.org/api $API_TAG. The MCP tool surface is generated from that release's mcp: annotations. Artifacts: c-shared library per OS + manifest.json."
 

@@ -6,8 +6,8 @@
 # was built against, so the catalogue serves this build only to a host on that API version.
 #
 # Usage: scripts/publish-catalogue.sh <platform> <library-file> <api-major.minor>
-#   platform        one of: linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64
-#   library-file    the built c-shared library (.so/.dylib/.dll)
+#   platform        one of: linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64 js-wasm
+#   library-file    the built c-shared library (.so/.dylib/.dll) or WebAssembly module (.wasm)
 #   api-major.minor e.g. 0.85
 # Env:
 #   ADDINS_PUBLISH_URL    catalogue base URL (default https://addins.oblikovati.org)

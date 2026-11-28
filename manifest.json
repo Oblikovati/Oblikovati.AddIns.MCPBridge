@@ -5,7 +5,7 @@
   "description": "Exposes the Oblikovati API over an MCP server (HTTP/SSE) so an LLM can drive the live application in real time.",
   "license": "GPL-2.0-only",
   "sourceRepo": "https://github.com/Oblikovati/Oblikovati.AddIns.MCPBridge",
-  "apiCompat": "0.166",
+  "apiCompat": "0.167",
   "capabilities": [
     "commands",
     "documents",

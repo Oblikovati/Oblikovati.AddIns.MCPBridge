@@ -1,3 +1,5 @@
+//go:build cgo
+
 // SPDX-License-Identifier: GPL-2.0-only
 
 // Command oblikovati-mcp-bridge is built as a c-shared library (.so/.dll) and loaded
